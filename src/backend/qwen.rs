@@ -136,7 +136,9 @@ impl TtsBackend for QwenBackend {
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
                     .status()
-                    .context("Failed to run mlx_audio. Is mlx-audio installed? (pip install mlx-audio)")?;
+                    .context(
+                        "Failed to run mlx_audio. Is mlx-audio installed? (pip install mlx-audio)",
+                    )?;
                 if !status.success() {
                     anyhow::bail!("mlx_audio generation failed with status {status}");
                 }
@@ -185,7 +187,9 @@ impl TtsBackend for QwenBackend {
         for i in 1..chunks.len() {
             // Wait for generation of chunk i to finish
             if let Some(mut child) = gen_child.take() {
-                let status = child.wait().context(format!("generation failed for chunk {i}"))?;
+                let status = child
+                    .wait()
+                    .context(format!("generation failed for chunk {i}"))?;
                 if !status.success() {
                     anyhow::bail!("mlx_audio generation failed for chunk {i} with status {status}");
                 }
@@ -196,7 +200,10 @@ impl TtsBackend for QwenBackend {
                 .wait()
                 .context(format!("playback failed for chunk {}", i - 1))?;
             if !play_status.success() {
-                anyhow::bail!("afplay failed for chunk {} with status {play_status}", i - 1);
+                anyhow::bail!(
+                    "afplay failed for chunk {} with status {play_status}",
+                    i - 1
+                );
             }
 
             // Start playing chunk i

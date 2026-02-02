@@ -75,8 +75,7 @@ fn test_has_vox_hook_true() {
 
 #[test]
 fn test_has_vox_hook_false() {
-    let settings: serde_json::Value =
-        serde_json::from_str(r#"{"hooks":{"Stop":[]}}"#).unwrap();
+    let settings: serde_json::Value = serde_json::from_str(r#"{"hooks":{"Stop":[]}}"#).unwrap();
     assert!(!init::has_vox_hook(&settings));
 }
 

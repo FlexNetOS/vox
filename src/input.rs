@@ -1,6 +1,6 @@
 use std::io::{self, IsTerminal, Read};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn read_text(args: &[String]) -> Result<String> {
     if !args.is_empty() {

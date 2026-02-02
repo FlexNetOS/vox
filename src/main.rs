@@ -213,7 +213,11 @@ fn handle_clone(action: CloneAction) -> Result<()> {
             db::add_clone(&conn, &name, &audio, text.as_deref())?;
             println!("Voice clone '{name}' added.");
         }
-        CloneAction::Record { name, duration, text } => {
+        CloneAction::Record {
+            name,
+            duration,
+            text,
+        } => {
             let audio_path = clone::record_clone(&name, duration)?;
             db::add_clone(&conn, &name, &audio_path, text.as_deref())?;
             println!("Voice clone '{name}' recorded and saved.");
@@ -229,7 +233,10 @@ fn handle_clone(action: CloneAction) -> Result<()> {
                         .as_deref()
                         .map(|t| format!(" (text: \"{t}\")"))
                         .unwrap_or_default();
-                    println!("{}: {}{} [{}]", c.name, c.ref_audio, text_info, c.created_at);
+                    println!(
+                        "{}: {}{} [{}]",
+                        c.name, c.ref_audio, text_info, c.created_at
+                    );
                 }
             }
         }
@@ -250,14 +257,24 @@ fn handle_config(action: ConfigAction) -> Result<()> {
     match action {
         ConfigAction::Show => {
             let prefs = db::get_preferences(&conn)?;
-            println!("backend: {}", prefs.backend.as_deref().unwrap_or("(default)"));
+            println!(
+                "backend: {}",
+                prefs.backend.as_deref().unwrap_or("(default)")
+            );
             println!("voice:   {}", prefs.voice.as_deref().unwrap_or("(default)"));
             println!("lang:    {}", prefs.lang.as_deref().unwrap_or("(default)"));
             println!(
                 "rate:    {}",
-                prefs.rate.map(|r| r.to_string()).as_deref().unwrap_or("(default)")
+                prefs
+                    .rate
+                    .map(|r| r.to_string())
+                    .as_deref()
+                    .unwrap_or("(default)")
             );
-            println!("gender:  {}", prefs.gender.as_deref().unwrap_or("(default)"));
+            println!(
+                "gender:  {}",
+                prefs.gender.as_deref().unwrap_or("(default)")
+            );
             println!("style:   {}", prefs.style.as_deref().unwrap_or("(default)"));
         }
         ConfigAction::Set { key, value } => {

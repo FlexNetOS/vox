@@ -43,7 +43,10 @@ fn build_transcribe_command_arg_order() {
     let args: Vec<&OsStr> = cmd.get_args().collect();
     // -m must come before mlx_audio.stt.generate
     let m_pos = args.iter().position(|a| *a == "-m").unwrap();
-    let mod_pos = args.iter().position(|a| *a == "mlx_audio.stt.generate").unwrap();
+    let mod_pos = args
+        .iter()
+        .position(|a| *a == "mlx_audio.stt.generate")
+        .unwrap();
     assert!(m_pos < mod_pos);
     // --audio must come before --language
     let audio_pos = args.iter().position(|a| *a == "--audio").unwrap();
