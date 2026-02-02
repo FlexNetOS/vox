@@ -64,7 +64,10 @@ fn test_no_text_no_stdin() {
         .env("VOX_DB_PATH", tmp.path())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Text cannot be empty").or(predicate::str::contains("No text provided")));
+        .stderr(
+            predicate::str::contains("Text cannot be empty")
+                .or(predicate::str::contains("No text provided")),
+        );
 }
 
 #[test]
@@ -185,10 +188,7 @@ fn test_clone_add_missing_audio() {
 #[test]
 fn test_clone_add_and_list() {
     let tmp_db = tempfile::NamedTempFile::new().unwrap();
-    let tmp_audio = tempfile::Builder::new()
-        .suffix(".wav")
-        .tempfile()
-        .unwrap();
+    let tmp_audio = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
     let audio_path = tmp_audio.path().to_string_lossy().to_string();
 
     // Add
@@ -213,10 +213,7 @@ fn test_clone_add_and_list() {
 #[test]
 fn test_clone_remove() {
     let tmp_db = tempfile::NamedTempFile::new().unwrap();
-    let tmp_audio = tempfile::Builder::new()
-        .suffix(".wav")
-        .tempfile()
-        .unwrap();
+    let tmp_audio = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
     let audio_path = tmp_audio.path().to_string_lossy().to_string();
 
     // Add then remove

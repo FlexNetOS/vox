@@ -153,7 +153,13 @@ fn test_split_sentences_multiple_types() {
     let result = QwenBackend::split_sentences("Bonjour! Comment vas-tu? Bien. Merci; au revoir");
     assert_eq!(
         result,
-        vec!["Bonjour!", "Comment vas-tu?", "Bien.", "Merci;", "au revoir"]
+        vec![
+            "Bonjour!",
+            "Comment vas-tu?",
+            "Bien.",
+            "Merci;",
+            "au revoir"
+        ]
     );
 }
 

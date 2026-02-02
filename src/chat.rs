@@ -9,8 +9,7 @@ use crate::db;
 use crate::stt;
 
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
-const SYSTEM_PROMPT: &str =
-    "Tu es un assistant vocal. Réponds de manière concise et naturelle, comme dans une conversation orale.";
+const SYSTEM_PROMPT: &str = "Tu es un assistant vocal. Réponds de manière concise et naturelle, comme dans une conversation orale.";
 const MAX_TOKENS: u32 = 1024;
 const API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
@@ -86,11 +85,7 @@ pub fn parse_claude_response(body: &str) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("Empty response from Claude"))
 }
 
-fn call_claude(
-    api_key: &str,
-    model: &str,
-    messages: &[Message],
-) -> Result<String> {
+fn call_claude(api_key: &str, model: &str, messages: &[Message]) -> Result<String> {
     let request = build_claude_request(model, messages);
     let client = reqwest::blocking::Client::new();
     let resp = client
@@ -157,7 +152,7 @@ fn speak_text(text: &str, config: &ChatConfig) -> Result<()> {
 fn is_exit(text: &str) -> bool {
     let lower = text.to_lowercase();
     let trimmed = lower.trim().trim_end_matches(['.', '!', '?']);
-    EXIT_WORDS.iter().any(|w| trimmed == *w)
+    EXIT_WORDS.contains(&trimmed)
 }
 
 pub fn run_chat_loop(config: ChatConfig) -> Result<()> {

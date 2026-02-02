@@ -83,7 +83,9 @@ fn migrate(conn: &Connection) -> Result<()> {
 // --- Preferences ---
 
 pub fn get_preferences(conn: &Connection) -> Result<Preferences> {
-    let mut stmt = conn.prepare("SELECT backend, voice, lang, rate, gender, style FROM preferences WHERE id = 1")?;
+    let mut stmt = conn.prepare(
+        "SELECT backend, voice, lang, rate, gender, style FROM preferences WHERE id = 1",
+    )?;
     let result = stmt.query_row([], |row| {
         Ok(Preferences {
             backend: row.get(0)?,
@@ -104,15 +106,24 @@ pub fn get_preferences(conn: &Connection) -> Result<Preferences> {
 pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
     let valid_keys = ["backend", "voice", "lang", "rate", "gender", "style"];
     if !valid_keys.contains(&key) {
-        anyhow::bail!("Unknown preference: {key}. Valid keys: {}", valid_keys.join(", "));
+        anyhow::bail!(
+            "Unknown preference: {key}. Valid keys: {}",
+            valid_keys.join(", ")
+        );
     }
 
     // Validate specific keys
     match key {
-        "gender" => { config::Gender::from_str(value)?; }
-        "style" => { config::IntonationStyle::from_str(value)?; }
+        "gender" => {
+            config::Gender::parse(value)?;
+        }
+        "style" => {
+            config::IntonationStyle::parse(value)?;
+        }
         "rate" => {
-            value.parse::<u32>().context("Rate must be a positive integer")?;
+            value
+                .parse::<u32>()
+                .context("Rate must be a positive integer")?;
         }
         "lang" => {
             if !config::SUPPORTED_LANGS.contains(&value) {
@@ -149,7 +160,12 @@ pub fn reset_preferences(conn: &Connection) -> Result<()> {
 
 // --- Voice Clones ---
 
-pub fn add_clone(conn: &Connection, name: &str, ref_audio: &str, ref_text: Option<&str>) -> Result<()> {
+pub fn add_clone(
+    conn: &Connection,
+    name: &str,
+    ref_audio: &str,
+    ref_text: Option<&str>,
+) -> Result<()> {
     conn.execute(
         "INSERT INTO voice_clones (name, ref_audio, ref_text) VALUES (?1, ?2, ?3)",
         rusqlite::params![name, ref_audio, ref_text],
@@ -177,9 +193,8 @@ pub fn get_clone(conn: &Connection, name: &str) -> Result<Option<VoiceClone>> {
 }
 
 pub fn list_clones(conn: &Connection) -> Result<Vec<VoiceClone>> {
-    let mut stmt = conn.prepare(
-        "SELECT name, ref_audio, ref_text, created_at FROM voice_clones ORDER BY name",
-    )?;
+    let mut stmt = conn
+        .prepare("SELECT name, ref_audio, ref_text, created_at FROM voice_clones ORDER BY name")?;
     let rows = stmt.query_map([], |row| {
         Ok(VoiceClone {
             name: row.get(0)?,

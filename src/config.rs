@@ -20,7 +20,7 @@ impl Gender {
         }
     }
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+    pub fn parse(s: &str) -> anyhow::Result<Self> {
         match s {
             "feminine" => Ok(Gender::Feminine),
             "masculine" => Ok(Gender::Masculine),
@@ -51,7 +51,7 @@ impl IntonationStyle {
         }
     }
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+    pub fn parse(s: &str) -> anyhow::Result<Self> {
         match s {
             "calm" => Ok(IntonationStyle::Calm),
             "energetic" => Ok(IntonationStyle::Energetic),
