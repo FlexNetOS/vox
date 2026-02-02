@@ -26,8 +26,21 @@ brew tap rtk-ai/tap && brew install vox
 ### Requirements
 
 - macOS (uses `say` and `afplay`)
-- For Qwen backend: Python 3 + `pip install mlx-audio`
-- For voice chat: `ANTHROPIC_API_KEY` env var + `sox` (`brew install sox`)
+
+For the Qwen backend (local neural TTS, Apple Silicon only):
+
+```bash
+pip install mlx-audio
+```
+
+This pulls in [mlx-audio](https://github.com/ml-explore/mlx-audio) which provides both TTS (`mlx_audio.tts`) and STT (`mlx_audio.stt`). The model `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16` is downloaded automatically on first use (~1.2 GB).
+
+For voice chat:
+
+```bash
+brew install sox                  # audio recording (rec command)
+export ANTHROPIC_API_KEY=sk-ant-...
+```
 
 ## Usage
 
