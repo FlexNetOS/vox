@@ -115,10 +115,10 @@ pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
     // Validate specific keys
     match key {
         "gender" => {
-            config::Gender::from_str(value)?;
+            config::Gender::parse(value)?;
         }
         "style" => {
-            config::IntonationStyle::from_str(value)?;
+            config::IntonationStyle::parse(value)?;
         }
         "rate" => {
             value

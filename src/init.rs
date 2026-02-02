@@ -48,25 +48,21 @@ pub fn claude_md_has_vox(content: &str) -> bool {
 
 /// Checks whether a parsed settings.json already has a vox hook.
 pub fn has_vox_hook(settings: &Value) -> bool {
-    if let Some(hooks) = settings.get("hooks") {
-        if let Some(stop) = hooks.get("Stop") {
-            if let Some(arr) = stop.as_array() {
+    if let Some(hooks) = settings.get("hooks")
+        && let Some(stop) = hooks.get("Stop")
+            && let Some(arr) = stop.as_array() {
                 for entry in arr {
-                    if let Some(inner_hooks) = entry.get("hooks") {
-                        if let Some(inner_arr) = inner_hooks.as_array() {
+                    if let Some(inner_hooks) = entry.get("hooks")
+                        && let Some(inner_arr) = inner_hooks.as_array() {
                             for h in inner_arr {
-                                if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                                    if cmd.starts_with("vox ") {
+                                if let Some(cmd) = h.get("command").and_then(|c| c.as_str())
+                                    && cmd.starts_with("vox ") {
                                         return true;
                                     }
-                                }
                             }
                         }
-                    }
                 }
             }
-        }
-    }
     false
 }
 
@@ -100,8 +96,8 @@ pub fn build_settings(existing: Option<&str>) -> Result<String> {
             }
 
             // Merge hooks
-            if let Some(new_hooks) = vox_hook.get("hooks") {
-                if let Some(new_stop) = new_hooks.get("Stop") {
+            if let Some(new_hooks) = vox_hook.get("hooks")
+                && let Some(new_stop) = new_hooks.get("Stop") {
                     let base_obj = base
                         .as_object_mut()
                         .context("settings.json is not an object")?;
@@ -115,13 +111,11 @@ pub fn build_settings(existing: Option<&str>) -> Result<String> {
                     let stop_arr = hooks_map
                         .entry("Stop")
                         .or_insert_with(|| Value::Array(vec![]));
-                    if let Some(arr) = stop_arr.as_array_mut() {
-                        if let Some(new_entries) = new_stop.as_array() {
+                    if let Some(arr) = stop_arr.as_array_mut()
+                        && let Some(new_entries) = new_stop.as_array() {
                             arr.extend(new_entries.clone());
                         }
-                    }
                 }
-            }
 
             base
         }

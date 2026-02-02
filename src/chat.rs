@@ -152,7 +152,7 @@ fn speak_text(text: &str, config: &ChatConfig) -> Result<()> {
 fn is_exit(text: &str) -> bool {
     let lower = text.to_lowercase();
     let trimmed = lower.trim().trim_end_matches(['.', '!', '?']);
-    EXIT_WORDS.iter().any(|w| trimmed == *w)
+    EXIT_WORDS.contains(&trimmed)
 }
 
 pub fn run_chat_loop(config: ChatConfig) -> Result<()> {
