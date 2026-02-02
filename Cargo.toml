@@ -1,0 +1,31 @@
+[package]
+name = "vox"
+version = "0.0.1"
+edition = "2024"
+description = "TTS CLI for macOS — local voice synthesis with Qwen and system say"
+license = "MIT"
+repository = "https://github.com/rtk-ai/vox"
+keywords = ["tts", "voice", "speech", "macos", "cli"]
+categories = ["command-line-utilities", "multimedia::audio"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+dirs = "6"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
