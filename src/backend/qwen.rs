@@ -109,15 +109,16 @@ fn play_wav(path: &Path) -> Result<Child> {
 /// Remove orphaned `audio_*.wav` files from the current working directory.
 fn cleanup_cwd_wav() {
     if let Ok(dir) = std::env::current_dir()
-        && let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with("audio_") && name_str.ends_with(".wav") {
-                    let _ = std::fs::remove_file(entry.path());
-                }
+        && let Ok(entries) = std::fs::read_dir(&dir)
+    {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with("audio_") && name_str.ends_with(".wav") {
+                let _ = std::fs::remove_file(entry.path());
             }
         }
+    }
 }
 
 impl TtsBackend for QwenBackend {

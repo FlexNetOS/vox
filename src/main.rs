@@ -157,12 +157,13 @@ fn handle_speak(cli: Cli) -> Result<()> {
     let mut effective_backend = backend_name.clone();
 
     if let Some(ref voice_name) = voice
-        && let Some(vc) = clone::resolve_voice(&conn, voice_name)? {
-            ref_audio = Some(vc.ref_audio);
-            ref_text = vc.ref_text;
-            effective_backend = "qwen".to_string();
-            voice = None; // don't pass clone name as --voice
-        }
+        && let Some(vc) = clone::resolve_voice(&conn, voice_name)?
+    {
+        ref_audio = Some(vc.ref_audio);
+        ref_text = vc.ref_text;
+        effective_backend = "qwen".to_string();
+        voice = None; // don't pass clone name as --voice
+    }
 
     let backend = backend::get_backend(&effective_backend)?;
 

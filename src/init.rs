@@ -50,19 +50,22 @@ pub fn claude_md_has_vox(content: &str) -> bool {
 pub fn has_vox_hook(settings: &Value) -> bool {
     if let Some(hooks) = settings.get("hooks")
         && let Some(stop) = hooks.get("Stop")
-            && let Some(arr) = stop.as_array() {
-                for entry in arr {
-                    if let Some(inner_hooks) = entry.get("hooks")
-                        && let Some(inner_arr) = inner_hooks.as_array() {
-                            for h in inner_arr {
-                                if let Some(cmd) = h.get("command").and_then(|c| c.as_str())
-                                    && cmd.starts_with("vox ") {
-                                        return true;
-                                    }
-                            }
-                        }
+        && let Some(arr) = stop.as_array()
+    {
+        for entry in arr {
+            if let Some(inner_hooks) = entry.get("hooks")
+                && let Some(inner_arr) = inner_hooks.as_array()
+            {
+                for h in inner_arr {
+                    if let Some(cmd) = h.get("command").and_then(|c| c.as_str())
+                        && cmd.starts_with("vox ")
+                    {
+                        return true;
+                    }
                 }
             }
+        }
+    }
     false
 }
 
@@ -97,25 +100,27 @@ pub fn build_settings(existing: Option<&str>) -> Result<String> {
 
             // Merge hooks
             if let Some(new_hooks) = vox_hook.get("hooks")
-                && let Some(new_stop) = new_hooks.get("Stop") {
-                    let base_obj = base
-                        .as_object_mut()
-                        .context("settings.json is not an object")?;
-                    let hooks_obj = base_obj
-                        .entry("hooks")
-                        .or_insert_with(|| Value::Object(serde_json::Map::new()));
-                    let hooks_map = hooks_obj
-                        .as_object_mut()
-                        .context("hooks is not an object")?;
+                && let Some(new_stop) = new_hooks.get("Stop")
+            {
+                let base_obj = base
+                    .as_object_mut()
+                    .context("settings.json is not an object")?;
+                let hooks_obj = base_obj
+                    .entry("hooks")
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                let hooks_map = hooks_obj
+                    .as_object_mut()
+                    .context("hooks is not an object")?;
 
-                    let stop_arr = hooks_map
-                        .entry("Stop")
-                        .or_insert_with(|| Value::Array(vec![]));
-                    if let Some(arr) = stop_arr.as_array_mut()
-                        && let Some(new_entries) = new_stop.as_array() {
-                            arr.extend(new_entries.clone());
-                        }
+                let stop_arr = hooks_map
+                    .entry("Stop")
+                    .or_insert_with(|| Value::Array(vec![]));
+                if let Some(arr) = stop_arr.as_array_mut()
+                    && let Some(new_entries) = new_stop.as_array()
+                {
+                    arr.extend(new_entries.clone());
                 }
+            }
 
             base
         }
