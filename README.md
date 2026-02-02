@@ -30,6 +30,7 @@ brew tap rtk-ai/tap && brew install vox
 For the Qwen backend (local neural TTS, Apple Silicon only):
 
 ```bash
+brew install python3
 pip install mlx-audio
 ```
 
