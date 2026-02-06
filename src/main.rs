@@ -38,6 +38,10 @@ struct Cli {
     #[arg(long)]
     style: Option<String>,
 
+    /// TTS model (e.g. mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit for faster inference)
+    #[arg(short = 'm', long)]
+    model: Option<String>,
+
     /// List available voices for the selected backend
     #[arg(long)]
     list_voices: bool,
@@ -150,6 +154,7 @@ fn handle_speak(cli: Cli) -> Result<()> {
     let rate = cli.rate.or(prefs.rate);
     let gender = cli.gender.or(prefs.gender);
     let style = cli.style.or(prefs.style);
+    let model = cli.model.or(prefs.model);
 
     // Resolve voice clone
     let mut ref_audio = None;
@@ -185,6 +190,7 @@ fn handle_speak(cli: Cli) -> Result<()> {
         style,
         ref_audio,
         ref_text,
+        model,
     };
 
     let start = Instant::now();
@@ -276,6 +282,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 prefs.gender.as_deref().unwrap_or("(default)")
             );
             println!("style:   {}", prefs.style.as_deref().unwrap_or("(default)"));
+            println!("model:   {}", prefs.model.as_deref().unwrap_or("(default)"));
         }
         ConfigAction::Set { key, value } => {
             db::set_preference(&conn, &key, &value)?;

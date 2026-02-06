@@ -12,6 +12,7 @@ pub struct SpeakOptions {
     pub style: Option<String>,
     pub ref_audio: Option<String>,
     pub ref_text: Option<String>,
+    pub model: Option<String>,
 }
 
 pub trait TtsBackend {

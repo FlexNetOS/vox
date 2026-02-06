@@ -9,12 +9,20 @@ pub struct QwenBackend;
 
 const DEFAULT_MODEL: &str = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16";
 
+/// Minimum chunk size in characters before splitting on sentence boundary.
+/// Larger chunks = fewer subprocess calls = less overhead per model load.
+const MIN_CHUNK_CHARS: usize = 120;
+
 impl QwenBackend {
+    fn model_name(opts: &SpeakOptions) -> &str {
+        opts.model.as_deref().unwrap_or(DEFAULT_MODEL)
+    }
+
     pub fn build_generate_command(text: &str, opts: &SpeakOptions) -> Command {
         let mut cmd = Command::new("python3");
         cmd.arg("-m").arg("mlx_audio.tts.generate");
         cmd.arg("--text").arg(text);
-        cmd.arg("--model").arg(DEFAULT_MODEL);
+        cmd.arg("--model").arg(Self::model_name(opts));
         cmd.arg("--play");
         cmd.arg("--stream");
         Self::apply_voice_opts(&mut cmd, opts);
@@ -31,7 +39,7 @@ impl QwenBackend {
         let mut cmd = Command::new("python3");
         cmd.arg("-m").arg("mlx_audio.tts.generate");
         cmd.arg("--text").arg(text);
-        cmd.arg("--model").arg(DEFAULT_MODEL);
+        cmd.arg("--model").arg(Self::model_name(opts));
         Self::apply_voice_opts(&mut cmd, opts);
         cmd.current_dir(output_dir);
         cmd
@@ -52,9 +60,13 @@ impl QwenBackend {
         }
     }
 
-    /// Split text into sentences for chunked generation.
+    /// Split text into chunks for generation.
+    ///
+    /// Merges adjacent small sentences to reduce the number of subprocess calls.
+    /// Each call to python3 pays ~5-15s of model-loading overhead, so fewer
+    /// calls with larger chunks is a major performance win.
     pub fn split_sentences(text: &str) -> Vec<String> {
-        let mut sentences = Vec::new();
+        let mut raw = Vec::new();
         let mut current = String::new();
 
         for c in text.chars() {
@@ -62,16 +74,45 @@ impl QwenBackend {
             if matches!(c, '.' | '!' | '?' | ';') {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() {
-                    sentences.push(trimmed);
+                    raw.push(trimmed);
                 }
                 current.clear();
             }
         }
         let trimmed = current.trim().to_string();
         if !trimmed.is_empty() {
-            sentences.push(trimmed);
+            raw.push(trimmed);
         }
-        sentences
+
+        // Merge small consecutive sentences to reduce generation calls
+        let mut merged = Vec::new();
+        let mut buf = String::new();
+
+        for sentence in raw {
+            if buf.is_empty() {
+                buf = sentence;
+            } else if buf.len() + sentence.len() + 1 < MIN_CHUNK_CHARS {
+                buf.push(' ');
+                buf.push_str(&sentence);
+            } else {
+                merged.push(buf);
+                buf = sentence;
+            }
+        }
+        if !buf.is_empty() {
+            merged.push(buf);
+        }
+
+        merged
+    }
+
+    /// Spawn async generation for a chunk.
+    fn spawn_generate_to_file(text: &str, opts: &SpeakOptions, output_dir: &Path) -> Result<Child> {
+        Self::build_generate_command_to_file(text, opts, output_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("failed to spawn mlx_audio generation")
     }
 }
 
@@ -172,13 +213,11 @@ impl TtsBackend for QwenBackend {
 
         // Start generating chunk 1 (if exists)
         let mut gen_child: Option<Child> = if chunks.len() > 1 {
-            Some(
-                Self::build_generate_command_to_file(&chunks[1], opts, &chunk_dirs[1])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .spawn()
-                    .context("failed to spawn generation for chunk 1")?,
-            )
+            Some(Self::spawn_generate_to_file(
+                &chunks[1],
+                opts,
+                &chunk_dirs[1],
+            )?)
         } else {
             None
         };
@@ -212,13 +251,11 @@ impl TtsBackend for QwenBackend {
 
             // Start generating chunk i+1 (if exists)
             if i + 1 < chunks.len() {
-                gen_child = Some(
-                    Self::build_generate_command_to_file(&chunks[i + 1], opts, &chunk_dirs[i + 1])
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn()
-                        .context(format!("failed to spawn generation for chunk {}", i + 1))?,
-                );
+                gen_child = Some(Self::spawn_generate_to_file(
+                    &chunks[i + 1],
+                    opts,
+                    &chunk_dirs[i + 1],
+                )?);
             }
         }
 
