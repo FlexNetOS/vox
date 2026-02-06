@@ -22,19 +22,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            archive: tar.gz
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            archive: tar.gz
+  build-and-release:
+    name: Build and upload release assets
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -43,35 +33,37 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-
+
+      - name: Build aarch64-apple-darwin
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Build x86_64-apple-darwin
+        run: cargo build --release --target x86_64-apple-darwin
 
       - name: Package
         run: |
-          cd target/${{ matrix.target }}/release
-          tar -czvf ../../../vox-${{ matrix.target }}.${{ matrix.archive }} vox
-          cd ../../..
+          mkdir -p release
+          cd target/aarch64-apple-darwin/release
+          tar -czvf ../../../release/vox-aarch64-apple-darwin.tar.gz vox
+          cd ../../../target/x86_64-apple-darwin/release
+          tar -czvf ../../../release/vox-x86_64-apple-darwin.tar.gz vox
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vox-${{ matrix.target }}
-          path: vox-${{ matrix.target }}.${{ matrix.archive }}
-
-  release:
-    name: Create Release
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+      - name: Create checksums
+        run: |
+          cd release
+          shasum -a 256 *.tar.gz > checksums.txt
 
       - name: Get version
         id: version
@@ -83,16 +75,6 @@ jobs:
           elif [ "${{ github.event_name }}" = "release" ]; then
             echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
           fi
-
-      - name: Flatten artifacts
-        run: |
-          mkdir -p release
-          find artifacts -type f -name "*.tar.gz" -exec cp {} release/ \;
-
-      - name: Create checksums
-        run: |
-          cd release
-          sha256sum * > checksums.txt
 
       - name: Upload Release Assets
         if: github.event_name == 'release' || github.event_name == 'workflow_call'
