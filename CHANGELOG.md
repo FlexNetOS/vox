@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0](https://github.com/rtk-ai/vox/compare/v0.0.2...v0.1.0) (2026-02-06)
+
+
+### Features
+
+* add qwen-native backend using qwen3-tts-rs for pure Rust TTS inference ([db2296c](https://github.com/rtk-ai/vox/commit/db2296c4f8e581edecd677caee5385a20fcbf7eb))
+* parallelize CI and fix release workflow for macOS ([170a75f](https://github.com/rtk-ai/vox/commit/170a75fe1037f601df0a3c2633b9137494813ce2))
+* smart sentence merging and configurable model for faster TTS ([f73501c](https://github.com/rtk-ai/vox/commit/f73501c52532ca27a49825a4a86c6103dacb72f6))
+
 ## [0.0.2](https://github.com/rtk-ai/vox/compare/v0.0.1...v0.0.2) (2026-02-02)
 
 
