@@ -11,6 +11,7 @@ pub struct Preferences {
     pub rate: Option<u32>,
     pub gender: Option<String>,
     pub style: Option<String>,
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +78,17 @@ fn migrate(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%S','now'))
         );",
     )?;
+
+    // Migration: add model column if missing (upgrade from <= 0.0.2)
+    let has_model: bool = conn
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='preferences'")?
+        .query_row([], |row| row.get::<_, String>(0))
+        .unwrap_or_default()
+        .contains("model");
+    if !has_model {
+        let _ = conn.execute_batch("ALTER TABLE preferences ADD COLUMN model TEXT;");
+    }
+
     Ok(())
 }
 
@@ -84,7 +96,7 @@ fn migrate(conn: &Connection) -> Result<()> {
 
 pub fn get_preferences(conn: &Connection) -> Result<Preferences> {
     let mut stmt = conn.prepare(
-        "SELECT backend, voice, lang, rate, gender, style FROM preferences WHERE id = 1",
+        "SELECT backend, voice, lang, rate, gender, style, model FROM preferences WHERE id = 1",
     )?;
     let result = stmt.query_row([], |row| {
         Ok(Preferences {
@@ -94,6 +106,7 @@ pub fn get_preferences(conn: &Connection) -> Result<Preferences> {
             rate: row.get::<_, Option<u32>>(3)?,
             gender: row.get(4)?,
             style: row.get(5)?,
+            model: row.get(6)?,
         })
     });
     match result {
@@ -104,7 +117,9 @@ pub fn get_preferences(conn: &Connection) -> Result<Preferences> {
 }
 
 pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
-    let valid_keys = ["backend", "voice", "lang", "rate", "gender", "style"];
+    let valid_keys = [
+        "backend", "voice", "lang", "rate", "gender", "style", "model",
+    ];
     if !valid_keys.contains(&key) {
         anyhow::bail!(
             "Unknown preference: {key}. Valid keys: {}",
@@ -134,8 +149,8 @@ pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
             }
         }
         "backend" => {
-            if !["say", "qwen"].contains(&value) {
-                anyhow::bail!("Unknown backend: {value}. Must be 'say' or 'qwen'");
+            if !["say", "qwen", "qwen-native"].contains(&value) {
+                anyhow::bail!("Unknown backend: {value}. Must be 'say', 'qwen', or 'qwen-native'");
             }
         }
         _ => {}
@@ -143,8 +158,8 @@ pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
 
     // Upsert: insert or update
     conn.execute(
-        "INSERT INTO preferences (id, backend, voice, lang, rate, gender, style)
-         VALUES (1, NULL, NULL, NULL, NULL, NULL, NULL)
+        "INSERT INTO preferences (id, backend, voice, lang, rate, gender, style, model)
+         VALUES (1, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
          ON CONFLICT(id) DO NOTHING",
         [],
     )?;

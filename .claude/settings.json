@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "vox -b say \"Terminé.\"",
+            "command": "/Users/patrick/.cargo/bin/vox -b say \"Terminé.\"",
             "type": "command"
           }
         ],

@@ -1,4 +1,5 @@
 pub mod qwen;
+pub mod qwen_native;
 pub mod say;
 
 use anyhow::Result;
@@ -12,6 +13,7 @@ pub struct SpeakOptions {
     pub style: Option<String>,
     pub ref_audio: Option<String>,
     pub ref_text: Option<String>,
+    pub model: Option<String>,
 }
 
 pub trait TtsBackend {
@@ -25,6 +27,7 @@ pub fn get_backend(name: &str) -> Result<Box<dyn TtsBackend>> {
     match name {
         "say" => Ok(Box::new(say::SayBackend)),
         "qwen" => Ok(Box::new(qwen::QwenBackend)),
+        "qwen-native" => Ok(Box::new(qwen_native::QwenNativeBackend)),
         _ => anyhow::bail!("Unknown backend: {name}"),
     }
 }
