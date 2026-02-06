@@ -149,8 +149,8 @@ pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
             }
         }
         "backend" => {
-            if !["say", "qwen"].contains(&value) {
-                anyhow::bail!("Unknown backend: {value}. Must be 'say' or 'qwen'");
+            if !["say", "qwen", "qwen-native"].contains(&value) {
+                anyhow::bail!("Unknown backend: {value}. Must be 'say', 'qwen', or 'qwen-native'");
             }
         }
         _ => {}

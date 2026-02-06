@@ -14,7 +14,7 @@ struct Cli {
     /// Text to speak (when no subcommand is used)
     text: Vec<String>,
 
-    /// TTS backend (say, qwen)
+    /// TTS backend (say, qwen, qwen-native)
     #[arg(short = 'b', long, default_value = DEFAULT_BACKEND)]
     backend: String,
 
@@ -166,7 +166,10 @@ fn handle_speak(cli: Cli) -> Result<()> {
     {
         ref_audio = Some(vc.ref_audio);
         ref_text = vc.ref_text;
-        effective_backend = "qwen".to_string();
+        // Auto-switch to a qwen backend for voice clones (unless already on one)
+        if effective_backend != "qwen" && effective_backend != "qwen-native" {
+            effective_backend = "qwen".to_string();
+        }
         voice = None; // don't pass clone name as --voice
     }
 
