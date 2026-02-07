@@ -1,11 +1,11 @@
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use vox::backend::{self, SpeakOptions};
 use vox::config::DEFAULT_BACKEND;
-use vox::{clone, db, init, input};
+use vox::{clone, db, init, input, mcp};
 
 #[derive(Parser)]
 #[command(name = "vox", version, about = "Voice Command — read text aloud")]
@@ -63,8 +63,14 @@ enum Commands {
     },
     /// Show usage statistics
     Stats,
-    /// Set up AI assistant integration (Claude Code)
-    Init,
+    /// Set up AI assistant integration (Claude Code + Claude Desktop)
+    Init {
+        /// Integration mode: mcp, cli, skill, or all (default: all)
+        #[arg(short, long, default_value = "all")]
+        mode: InitMode,
+    },
+    /// Launch MCP server (stdio transport for Claude Code / Claude Desktop)
+    Serve,
     /// Start a voice conversation with Claude (macOS only)
     #[cfg(target_os = "macos")]
     Chat {
@@ -110,6 +116,18 @@ enum CloneAction {
     },
 }
 
+#[derive(Clone, ValueEnum)]
+enum InitMode {
+    /// MCP server plugin (Claude calls vox tools natively)
+    Mcp,
+    /// CLAUDE.md instructions + Stop hook (Claude calls vox via Bash)
+    Cli,
+    /// Claude Code slash command /speak
+    Skill,
+    /// All integration modes
+    All,
+}
+
 #[derive(Subcommand)]
 enum ConfigAction {
     /// Show current preferences
@@ -132,7 +150,8 @@ fn main() -> Result<()> {
         Some(Commands::Clone { action }) => handle_clone(action),
         Some(Commands::Config { action }) => handle_config(action),
         Some(Commands::Stats) => handle_stats(),
-        Some(Commands::Init) => handle_init(),
+        Some(Commands::Init { mode }) => handle_init(mode),
+        Some(Commands::Serve) => mcp::run_server(),
         #[cfg(target_os = "macos")]
         Some(Commands::Chat { voice, lang }) => handle_chat(voice, lang),
         None => handle_speak(cli),
@@ -341,20 +360,78 @@ fn handle_chat(voice: Option<String>, lang: Option<String>) -> Result<()> {
     chat::run_chat_loop(config)
 }
 
-fn handle_init() -> Result<()> {
-    let cwd = std::env::current_dir().context("Failed to get current directory")?;
-    let result = init::run_init(&cwd)?;
+fn handle_init(mode: InitMode) -> Result<()> {
+    let do_cli = matches!(mode, InitMode::Cli | InitMode::All);
+    let do_mcp = matches!(mode, InitMode::Mcp | InitMode::All);
+    let do_skill = matches!(mode, InitMode::Skill | InitMode::All);
 
-    if !result.claude_md_written && !result.settings_written {
-        println!("Already configured — nothing to do.");
-    } else {
+    // --- CLI mode: CLAUDE.md + Stop hook ---
+    if do_cli {
+        let cwd = std::env::current_dir().context("Failed to get current directory")?;
+        let result = init::run_init(&cwd)?;
+
         if result.claude_md_written {
-            println!("CLAUDE.md configured with vox instructions.");
+            println!("[cli] CLAUDE.md configured with vox instructions.");
         }
         if result.settings_written {
-            println!(".claude/settings.json configured with Stop hook.");
+            println!("[cli] .claude/settings.json configured with Stop hook.");
+        }
+        if !result.claude_md_written && !result.settings_written {
+            println!("[cli] already configured.");
         }
     }
+
+    // --- MCP mode: configure MCP server ---
+    if do_mcp {
+        let vox_bin = std::env::current_exe().context("cannot determine vox binary path")?;
+        let vox_bin_str = vox_bin.to_string_lossy().to_string();
+        let home = std::env::var("HOME").context("HOME not set")?;
+
+        let mcp_entry = serde_json::json!({
+            "command": vox_bin_str,
+            "args": ["serve"],
+            "env": {}
+        });
+
+        let code_path = std::path::PathBuf::from(&home).join(".claude.json");
+        let code_status = init::inject_mcp_server(&code_path, "vox", &mcp_entry)
+            .unwrap_or_else(|e| format!("error: {e}"));
+
+        let desktop_path = std::path::PathBuf::from(&home)
+            .join("Library/Application Support/Claude/claude_desktop_config.json");
+        let desktop_status = init::inject_mcp_server(&desktop_path, "vox", &mcp_entry)
+            .unwrap_or_else(|e| format!("error: {e}"));
+
+        println!("[mcp] Claude Code:    {code_status}");
+        println!("[mcp] Claude Desktop: {desktop_status}");
+    }
+
+    // --- Skill mode: create /speak slash command ---
+    if do_skill {
+        let home = std::env::var("HOME").context("HOME not set")?;
+        let skills_dir = std::path::PathBuf::from(&home).join(".claude/commands");
+        std::fs::create_dir_all(&skills_dir).ok();
+
+        let skill_path = skills_dir.join("speak.md");
+        if skill_path.exists() {
+            println!("[skill] /speak already configured.");
+        } else {
+            std::fs::write(
+                &skill_path,
+                "Use vox to speak the following text aloud: $ARGUMENTS\n\
+                 \n\
+                 Call the vox_speak MCP tool if available, otherwise run:\n\
+                 ```bash\n\
+                 vox -b say \"$ARGUMENTS\"\n\
+                 ```\n",
+            )
+            .context("cannot write skill file")?;
+            println!("[skill] /speak command created.");
+        }
+    }
+
+    println!();
+    println!("Restart Claude Code / Claude Desktop to activate.");
 
     Ok(())
 }

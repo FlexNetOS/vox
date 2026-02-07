@@ -311,7 +311,7 @@ fn test_init_idempotent() {
         .current_dir(dir.path())
         .assert()
         .success()
-        .stdout(predicate::str::contains("Already configured"));
+        .stdout(predicate::str::contains("already configured"));
 }
 
 // --- Help subcommands ---
