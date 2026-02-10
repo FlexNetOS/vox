@@ -385,7 +385,10 @@ fn handle_init(mode: InitMode) -> Result<()> {
     if do_mcp {
         let vox_bin = std::env::current_exe().context("cannot determine vox binary path")?;
         let vox_bin_str = vox_bin.to_string_lossy().to_string();
-        let home = std::env::var("HOME").context("HOME not set")?;
+        let home = dirs::home_dir()
+            .context("cannot determine home directory")?
+            .to_string_lossy()
+            .to_string();
 
         let mcp_entry = serde_json::json!({
             "command": vox_bin_str,
@@ -393,22 +396,35 @@ fn handle_init(mode: InitMode) -> Result<()> {
             "env": {}
         });
 
-        let code_path = std::path::PathBuf::from(&home).join(".claude.json");
+        let home_path = std::path::PathBuf::from(&home);
+
+        let code_path = home_path.join(".claude.json");
         let code_status = init::inject_mcp_server(&code_path, "vox", &mcp_entry)
             .unwrap_or_else(|e| format!("error: {e}"));
+        println!("[mcp] Claude Code:    {code_status}");
 
-        let desktop_path = std::path::PathBuf::from(&home)
-            .join("Library/Application Support/Claude/claude_desktop_config.json");
+        // Claude Desktop config path is platform-specific
+        #[cfg(target_os = "macos")]
+        let desktop_path =
+            home_path.join("Library/Application Support/Claude/claude_desktop_config.json");
+        #[cfg(target_os = "windows")]
+        let desktop_path = dirs::config_dir()
+            .map(|d| d.join("Claude/claude_desktop_config.json"))
+            .unwrap_or_else(|| home_path.join("AppData/Roaming/Claude/claude_desktop_config.json"));
+        #[cfg(target_os = "linux")]
+        let desktop_path = home_path.join(".config/Claude/claude_desktop_config.json");
+
         let desktop_status = init::inject_mcp_server(&desktop_path, "vox", &mcp_entry)
             .unwrap_or_else(|e| format!("error: {e}"));
-
-        println!("[mcp] Claude Code:    {code_status}");
         println!("[mcp] Claude Desktop: {desktop_status}");
     }
 
     // --- Skill mode: create /speak slash command ---
     if do_skill {
-        let home = std::env::var("HOME").context("HOME not set")?;
+        let home = dirs::home_dir()
+            .context("cannot determine home directory")?
+            .to_string_lossy()
+            .to_string();
         let skills_dir = std::path::PathBuf::from(&home).join(".claude/commands");
         std::fs::create_dir_all(&skills_dir).ok();
 
