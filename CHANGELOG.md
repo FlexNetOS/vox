@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/rtk-ai/vox/compare/v0.2.1...v0.3.0) (2026-02-10)
+
+
+### Features
+
+* add MCP server and cross-platform improvements ([995f3d4](https://github.com/rtk-ai/vox/commit/995f3d45e7f3b30441522a530f0a0c5421b07c07))
+
+
+### Bug Fixes
+
+* cross-platform home detection and CI workflow_dispatch ([7db9d03](https://github.com/rtk-ai/vox/commit/7db9d03cb00992a3ac21a159d4c1a4f0a4f5b748))
+
 ## [0.2.1](https://github.com/rtk-ai/vox/compare/v0.2.0...v0.2.1) (2026-02-06)
 
 
