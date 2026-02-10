@@ -27,10 +27,11 @@ error() {
     exit 1
 }
 
-detect_os() {
+detect_platform() {
     case "$(uname -s)" in
         Darwin*) OS="darwin";;
-        *)       error "vox requires macOS (uses system 'say' and 'afplay')";;
+        Linux*)  OS="linux";;
+        *)       error "Unsupported OS: $(uname -s). Use WSL on Windows.";;
     esac
 }
 
@@ -42,6 +43,18 @@ detect_arch() {
     esac
 }
 
+get_target() {
+    case "$OS" in
+        darwin) TARGET="${ARCH}-apple-darwin";;
+        linux)
+            if [ "$ARCH" != "x86_64" ]; then
+                error "Linux builds are only available for x86_64 (got: $ARCH)"
+            fi
+            TARGET="x86_64-unknown-linux-gnu"
+            ;;
+    esac
+}
+
 get_latest_version() {
     VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -z "$VERSION" ]; then
@@ -49,12 +62,8 @@ get_latest_version() {
     fi
 }
 
-get_target() {
-    TARGET="${ARCH}-apple-darwin"
-}
-
 install() {
-    info "Detected: macOS $ARCH"
+    info "Detected: $OS $ARCH"
     info "Target: $TARGET"
     info "Version: $VERSION"
 
@@ -83,6 +92,14 @@ install() {
     info "Successfully installed ${BINARY_NAME} to ${INSTALL_DIR}/${BINARY_NAME}"
 }
 
+check_deps() {
+    if [ "$OS" = "linux" ]; then
+        if ! ldconfig -p 2>/dev/null | grep -q libasound; then
+            warn "ALSA not found. Install it: sudo apt install libasound2-dev"
+        fi
+    fi
+}
+
 verify() {
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         info "Verification: $($BINARY_NAME --version)"
@@ -94,11 +111,12 @@ verify() {
 main() {
     info "Installing $BINARY_NAME..."
 
-    detect_os
+    detect_platform
     detect_arch
     get_target
     get_latest_version
     install
+    check_deps
     verify
 
     echo ""

@@ -1,92 +1,83 @@
 # vox
 
-TTS CLI for macOS — local voice synthesis with Qwen and system `say`.
+Cross-platform TTS CLI — local voice synthesis with three backends.
 
-## Features
-
-- **Two backends**: macOS native `say` and [Qwen TTS](https://github.com/ml-explore/mlx-audio) (local, Apple Silicon)
-- **Voice cloning**: clone a voice from an audio sample, use it for all speech
-- **Voice chat**: have a spoken conversation with Claude (STT + LLM + TTS)
-- **Pipeline playback**: multi-sentence text plays without gaps between chunks
-- **Preferences**: persist backend, voice, language, rate, style settings
+```
+                         vox
+                          |
+            +-------------+-------------+
+            |             |             |
+          say          qwen        qwen-native
+       (macOS)     (MLX/Python)    (pure Rust)
+        native      Apple Silicon   cross-platform
+                                   CPU/Metal/CUDA
+                          |
+                        rodio
+                    (audio playback)
+```
 
 ## Install
 
 ```bash
-# Quick install (macOS)
-curl -fsSL https://raw.githubusercontent.com/rtk-ai/vox/main/install.sh | sh
-
 # From source
 cargo install --path .
 
-# Or via Homebrew (coming soon)
-brew tap rtk-ai/tap && brew install vox
+# Quick install (macOS / Linux / WSL)
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/vox/main/install.sh | sh
 ```
 
-### Requirements
+| Platform | Default backend | GPU |
+|----------|----------------|-----|
+| macOS | `say` | `--features metal` |
+| Linux / WSL | `qwen-native` | `--features cuda` |
 
-- macOS (uses `say` and `afplay`)
+Linux requires `sudo apt install libasound2-dev`.
 
-For the Qwen backend (local neural TTS, Apple Silicon only):
+## Usage with Claude Code
 
 ```bash
-brew install python3
-pip install mlx-audio
+vox init                # all integrations (default)
+vox init -m mcp         # MCP server only
+vox init -m cli         # CLI hook only
+vox init -m skill       # slash command only
 ```
 
-This pulls in [mlx-audio](https://github.com/ml-explore/mlx-audio) which provides both TTS (`mlx_audio.tts`) and STT (`mlx_audio.stt`). The model `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16` is downloaded automatically on first use (~1.2 GB).
+Each mode sets up a different integration:
 
-For voice chat:
+| Mode | What it does |
+|------|-------------|
+| `mcp` | Registers `vox serve` as an MCP server in `~/.claude.json` (Claude Code) and Claude Desktop config. Exposes 8 tools: `vox_speak`, `vox_list_voices`, `vox_clone_*`, `vox_config_*`, `vox_stats`. |
+| `cli` | Creates a `CLAUDE.md` in your project with instructions for Claude to call `vox` after significant tasks. Adds a `Stop` hook in `.claude/settings.json` that says "Terminé" after each response. |
+| `skill` | Creates a `/speak` slash command in `~/.claude/commands/speak.md`. |
+| `all` | Runs all three modes (default). |
 
-```bash
-brew install sox                  # audio recording (rec command)
-export ANTHROPIC_API_KEY=sk-ant-...
+```
+  Claude Code
+      |
+   MCP stdio
+      |
+  vox serve ──> vox_speak, vox_list_voices, ...
 ```
 
-## Usage
+Running `vox init` again is safe — it skips files that are already configured.
+
+## Standalone CLI
 
 ```bash
-# Speak text (default: say backend)
 vox "Hello, world."
-
-# Use Qwen backend
-vox -b qwen "Bonjour le monde."
-
-# Pipe from stdin
+vox -b qwen-native "Cross-platform TTS."
 echo "Hello" | vox
-
-# List voices
 vox --list-voices
-vox -b qwen --list-voices
-
-# Set voice and language
-vox -b qwen -v Chelsie -l en "Good morning."
 ```
 
 ### Voice cloning
 
 ```bash
-# Add a clone from an audio file
-vox clone add patrick --audio ~/voice.wav --text "Transcription of the audio"
-
-# Record a clone from microphone
+vox clone add patrick --audio ~/voice.wav --text "Transcription"
 vox clone record myvoice --duration 10
-
-# Use a cloned voice
 vox -v patrick "This speaks with your voice."
-
-# List / remove clones
 vox clone list
 vox clone remove patrick
-```
-
-### Voice chat
-
-```bash
-# Start a voice conversation with Claude
-export ANTHROPIC_API_KEY=sk-ant-...
-vox chat
-vox chat -v patrick -l fr
 ```
 
 ### Preferences
@@ -99,34 +90,30 @@ vox config set voice Chelsie
 vox config reset
 ```
 
-### Stats
+### Optional: Qwen backend (macOS)
+
+Neural TTS via Python/MLX on Apple Silicon:
 
 ```bash
-vox stats
+uv pip install mlx-audio
 ```
 
-## AI Integration
+Model downloaded automatically on first use (~1.2 GB).
 
-Set up your project so that Claude Code provides spoken summaries after completing tasks:
+## Data
 
-```bash
-cd your-project
-vox init
+All state is stored locally in `~/.config/vox/`:
+
 ```
-
-This creates:
-- **CLAUDE.md** — instructions for Claude to call `vox` after significant tasks
-- **.claude/settings.json** — a `Stop` hook that says "Terminé" after each response
-
-Running `vox init` again is safe — it skips files that are already configured.
-
-## Configuration
+~/.config/vox/
+├── vox.db          # SQLite: preferences, voice clones, usage logs
+└── clones/         # audio files for voice clones
+```
 
 | Env var | Description |
 |---------|-------------|
-| `VOX_CONFIG_DIR` | Override config directory (default: `~/.config/vox/`) |
-| `VOX_DB_PATH` | Override database path (default: `~/.config/vox/vox.db`) |
-| `ANTHROPIC_API_KEY` | Required for `vox chat` |
+| `VOX_CONFIG_DIR` | Override config directory |
+| `VOX_DB_PATH` | Override database path |
 
 ## License
 
