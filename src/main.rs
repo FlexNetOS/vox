@@ -65,8 +65,8 @@ enum Commands {
     Stats,
     /// Set up AI assistant integration (Claude Code + Claude Desktop)
     Init {
-        /// Integration mode: mcp, cli, skill, or all (default: all)
-        #[arg(short, long, default_value = "all")]
+        /// Integration mode: mcp, cli, skill, or all (default: mcp)
+        #[arg(short, long, default_value = "mcp")]
         mode: InitMode,
     },
     /// Launch MCP server (stdio transport for Claude Code / Claude Desktop)
