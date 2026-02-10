@@ -281,7 +281,7 @@ fn test_init_creates_files() {
     let dir = tempfile::tempdir().unwrap();
     Command::cargo_bin("vox")
         .unwrap()
-        .arg("init")
+        .args(["init", "-m", "cli"])
         .current_dir(dir.path())
         .assert()
         .success()
@@ -299,7 +299,7 @@ fn test_init_idempotent() {
     // First run
     Command::cargo_bin("vox")
         .unwrap()
-        .arg("init")
+        .args(["init", "-m", "cli"])
         .current_dir(dir.path())
         .assert()
         .success();
@@ -307,7 +307,7 @@ fn test_init_idempotent() {
     // Second run
     Command::cargo_bin("vox")
         .unwrap()
-        .arg("init")
+        .args(["init", "-m", "cli"])
         .current_dir(dir.path())
         .assert()
         .success()

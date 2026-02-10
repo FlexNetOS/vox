@@ -36,10 +36,10 @@ Linux requires `sudo apt install libasound2-dev`.
 ## Usage with Claude Code
 
 ```bash
-vox init                # all integrations (default)
-vox init -m mcp         # MCP server only
-vox init -m cli         # CLI hook only
-vox init -m skill       # slash command only
+vox init                # MCP server (default)
+vox init -m cli         # CLAUDE.md + Stop hook
+vox init -m skill       # /speak slash command
+vox init -m all         # all of the above
 ```
 
 Each mode sets up a different integration:
