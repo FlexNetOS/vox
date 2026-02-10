@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/rtk-ai/vox/compare/v0.3.0...v0.3.1) (2026-02-10)
+
+
+### Bug Fixes
+
+* default init mode to mcp instead of all ([0b414f5](https://github.com/rtk-ai/vox/commit/0b414f580a2e35db7541ed2e678363b1745d95ec))
+* default init mode to mcp instead of all ([7835952](https://github.com/rtk-ai/vox/commit/78359528923173e5b99833f3b2986005c2f43632))
+* pass secrets to release workflow for Homebrew update ([c025d9d](https://github.com/rtk-ai/vox/commit/c025d9d7c5bcb4f53f716f5f212326dc6078ee55))
+
 ## [0.3.0](https://github.com/rtk-ai/vox/compare/v0.2.1...v0.3.0) (2026-02-10)
 
 
