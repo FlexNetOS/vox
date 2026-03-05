@@ -271,7 +271,7 @@ fn test_stats_empty() {
         .args(["stats"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Total requests: 0"));
+        .stdout(predicate::str::contains("No usage recorded yet."));
 }
 
 // --- Init subcommand ---

@@ -7,51 +7,45 @@ use vox::stt;
 #[test]
 fn build_transcribe_command_basic() {
     let cmd = stt::build_transcribe_command("/tmp/audio.wav", None);
-    let args: Vec<&OsStr> = cmd.get_args().collect();
     assert_eq!(cmd.get_program(), "python3");
-    assert!(args.contains(&OsStr::new("-m")));
-    assert!(args.contains(&OsStr::new("mlx_audio.stt.generate")));
-    assert!(args.contains(&OsStr::new("--audio")));
-    assert!(args.contains(&OsStr::new("/tmp/audio.wav")));
-    assert!(args.contains(&OsStr::new("--format")));
-    assert!(args.contains(&OsStr::new("txt")));
+    let args: Vec<&OsStr> = cmd.get_args().collect();
+    assert_eq!(args.len(), 2);
+    assert_eq!(args[0], "-c");
+    let script = args[1].to_string_lossy();
+    assert!(script.contains("mlx_whisper"));
+    assert!(script.contains("/tmp/audio.wav"));
+    assert!(script.contains("language='en'")); // default language
 }
 
 #[test]
 fn build_transcribe_command_with_language() {
     let cmd = stt::build_transcribe_command("/tmp/audio.wav", Some("fr"));
     let args: Vec<&OsStr> = cmd.get_args().collect();
-    assert!(args.contains(&OsStr::new("--language")));
-    assert!(args.contains(&OsStr::new("fr")));
+    let script = args[1].to_string_lossy();
+    assert!(script.contains("language='fr'"));
 }
 
 #[test]
-fn build_transcribe_command_no_language_flag_when_none() {
+fn build_transcribe_command_no_language_defaults_to_en() {
     let cmd = stt::build_transcribe_command("/tmp/audio.wav", None);
     let args: Vec<&OsStr> = cmd.get_args().collect();
-    assert!(!args.contains(&OsStr::new("--language")));
+    let script = args[1].to_string_lossy();
+    assert!(script.contains("language='en'"));
 }
 
 #[test]
 fn build_transcribe_command_preserves_audio_path() {
     let cmd = stt::build_transcribe_command("/home/user/recording.wav", None);
     let args: Vec<&OsStr> = cmd.get_args().collect();
-    assert!(args.contains(&OsStr::new("/home/user/recording.wav")));
+    let script = args[1].to_string_lossy();
+    assert!(script.contains("/home/user/recording.wav"));
 }
 
 #[test]
-fn build_transcribe_command_arg_order() {
-    let cmd = stt::build_transcribe_command("/tmp/a.wav", Some("en"));
+fn build_transcribe_command_uses_whisper_model() {
+    let cmd = stt::build_transcribe_command("/tmp/a.wav", Some("ja"));
     let args: Vec<&OsStr> = cmd.get_args().collect();
-    // -m must come before mlx_audio.stt.generate
-    let m_pos = args.iter().position(|a| *a == "-m").unwrap();
-    let mod_pos = args
-        .iter()
-        .position(|a| *a == "mlx_audio.stt.generate")
-        .unwrap();
-    assert!(m_pos < mod_pos);
-    // --audio must come before --language
-    let audio_pos = args.iter().position(|a| *a == "--audio").unwrap();
-    let lang_pos = args.iter().position(|a| *a == "--language").unwrap();
-    assert!(audio_pos < lang_pos);
+    let script = args[1].to_string_lossy();
+    assert!(script.contains("whisper-large-v3-turbo"));
+    assert!(script.contains("language='ja'"));
 }
