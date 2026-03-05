@@ -1,3 +1,4 @@
+pub mod kokoro;
 #[cfg(target_os = "macos")]
 pub mod qwen;
 pub mod qwen_native;
@@ -27,6 +28,7 @@ pub trait TtsBackend {
 
 pub fn get_backend(name: &str) -> Result<Box<dyn TtsBackend>> {
     match name {
+        "kokoro" => Ok(Box::new(kokoro::KokoroBackend)),
         #[cfg(target_os = "macos")]
         "say" => Ok(Box::new(say::SayBackend)),
         #[cfg(target_os = "macos")]

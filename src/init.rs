@@ -178,8 +178,15 @@ pub fn run_init(project_dir: &Path) -> Result<InitResult> {
     Ok(result)
 }
 
-/// Inject an MCP server entry into a Claude config file. Returns a status string.
-pub fn inject_mcp_server(config_path: &PathBuf, name: &str, entry: &Value) -> Result<String> {
+/// Inject an MCP server into a JSON config with a configurable top-level key.
+/// Works for: Claude (`mcpServers`), Cursor (`mcpServers`), Windsurf (`mcpServers`),
+/// OpenCode (`mcp`).
+pub fn inject_mcp_json(
+    config_path: &PathBuf,
+    top_key: &str,
+    name: &str,
+    entry: &Value,
+) -> Result<String> {
     let mut config: Value = if config_path.exists() {
         let content = fs::read_to_string(config_path)
             .with_context(|| format!("cannot read {}", config_path.display()))?;
@@ -192,20 +199,20 @@ pub fn inject_mcp_server(config_path: &PathBuf, name: &str, entry: &Value) -> Re
         serde_json::json!({})
     };
 
-    let mcp_servers = config
+    let servers = config
         .as_object_mut()
         .context("config is not a JSON object")?
-        .entry("mcpServers")
+        .entry(top_key)
         .or_insert_with(|| serde_json::json!({}));
 
-    if let Some(existing) = mcp_servers.get(name)
+    if let Some(existing) = servers.get(name)
         && existing.get("command").and_then(|v| v.as_str())
             == entry.get("command").and_then(|v| v.as_str())
     {
         return Ok("already configured".into());
     }
 
-    mcp_servers
+    servers
         .as_object_mut()
         .unwrap()
         .insert(name.to_string(), entry.clone());
@@ -215,4 +222,90 @@ pub fn inject_mcp_server(config_path: &PathBuf, name: &str, entry: &Value) -> Re
         .with_context(|| format!("cannot write {}", config_path.display()))?;
 
     Ok("configured".into())
+}
+
+/// Shorthand for Claude/Cursor/Windsurf style (`mcpServers` key).
+pub fn inject_mcp_server(config_path: &PathBuf, name: &str, entry: &Value) -> Result<String> {
+    inject_mcp_json(config_path, "mcpServers", name, entry)
+}
+
+/// Inject into VS Code / Copilot `.vscode/mcp.json` (uses `servers` key, no `env` wrapper).
+pub fn inject_vscode_mcp(config_path: &PathBuf, name: &str, entry: &Value) -> Result<String> {
+    inject_mcp_json(config_path, "servers", name, entry)
+}
+
+/// Inject into Zed `settings.json` (uses `context_servers` with nested `command` object).
+pub fn inject_zed_mcp(config_path: &PathBuf, name: &str, command: &str) -> Result<String> {
+    let mut config: Value = if config_path.exists() {
+        let content = fs::read_to_string(config_path)
+            .with_context(|| format!("cannot read {}", config_path.display()))?;
+        serde_json::from_str(&content)
+            .with_context(|| format!("invalid JSON in {}", config_path.display()))?
+    } else {
+        if let Some(parent) = config_path.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+        serde_json::json!({})
+    };
+
+    let servers = config
+        .as_object_mut()
+        .context("config is not a JSON object")?
+        .entry("context_servers")
+        .or_insert_with(|| serde_json::json!({}));
+
+    if servers.get(name).is_some() {
+        return Ok("already configured".into());
+    }
+
+    let zed_entry = serde_json::json!({
+        "command": {
+            "path": command,
+            "args": ["serve"],
+            "env": {}
+        },
+        "settings": {}
+    });
+
+    servers
+        .as_object_mut()
+        .unwrap()
+        .insert(name.to_string(), zed_entry);
+
+    let output = serde_json::to_string_pretty(&config)?;
+    fs::write(config_path, output)
+        .with_context(|| format!("cannot write {}", config_path.display()))?;
+
+    Ok("configured".into())
+}
+
+/// Inject into Codex `config.toml` (TOML format).
+pub fn inject_codex_mcp(config_path: &PathBuf, name: &str, command: &str) -> Result<String> {
+    let content = if config_path.exists() {
+        fs::read_to_string(config_path)
+            .with_context(|| format!("cannot read {}", config_path.display()))?
+    } else {
+        if let Some(parent) = config_path.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+        String::new()
+    };
+
+    let section_header = format!("[mcp_servers.{name}]");
+    if content.contains(&section_header) {
+        return Ok("already configured".into());
+    }
+
+    let toml_block = format!("\n{section_header}\ncommand = \"{command}\"\nargs = [\"serve\"]\n");
+
+    let new_content = format!("{}{}", content.trim_end(), toml_block);
+    fs::write(config_path, format!("{new_content}\n"))
+        .with_context(|| format!("cannot write {}", config_path.display()))?;
+
+    Ok("configured".into())
+}
+
+/// Inject into OpenCode `opencode.json` (uses `mcp` key with `command`+`args`).
+pub fn inject_opencode_mcp(config_path: &PathBuf, name: &str, entry: &Value) -> Result<String> {
+    inject_mcp_json(config_path, "mcp", name, entry)
 }

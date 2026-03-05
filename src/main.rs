@@ -86,6 +86,19 @@ enum Commands {
         #[arg(short = 'l', long)]
         lang: Option<String>,
     },
+    /// Record from microphone and transcribe to text (macOS only, requires sox + mlx-audio)
+    #[cfg(target_os = "macos")]
+    Hear {
+        /// Language code for transcription (default: fr)
+        #[arg(short = 'l', long, default_value = "fr")]
+        lang: String,
+        /// Maximum recording duration in seconds
+        #[arg(short = 't', long, default_value = "30")]
+        timeout: u32,
+        /// Seconds of silence before stopping
+        #[arg(short = 's', long, default_value = "2.0")]
+        silence: f64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -190,6 +203,12 @@ fn main() -> Result<()> {
         Some(Commands::Pack { action }) => handle_pack(action),
         #[cfg(target_os = "macos")]
         Some(Commands::Chat { voice, lang }) => handle_chat(voice, lang),
+        #[cfg(target_os = "macos")]
+        Some(Commands::Hear {
+            lang,
+            timeout,
+            silence,
+        }) => handle_hear(lang, timeout, silence),
         None => handle_speak(cli),
     }
 }
@@ -397,6 +416,61 @@ fn handle_chat(voice: Option<String>, lang: Option<String>) -> Result<()> {
     chat::run_chat_loop(config)
 }
 
+#[cfg(target_os = "macos")]
+fn handle_hear(lang: String, timeout: u32, silence: f64) -> Result<()> {
+    use vox::stt;
+
+    let tmp_dir = std::env::temp_dir();
+    let audio_path = tmp_dir.join("vox_hear_input.wav");
+    let audio_str = audio_path.to_string_lossy().to_string();
+
+    eprintln!("Listening... (speak now, will stop after {silence}s of silence)");
+
+    let status = std::process::Command::new("rec")
+        .arg(&audio_str)
+        .arg("rate")
+        .arg("16k")
+        .arg("silence")
+        .arg("1")
+        .arg("0.1")
+        .arg("1%")
+        .arg("1")
+        .arg(format!("{silence}"))
+        .arg("1%")
+        .arg("trim")
+        .arg("0")
+        .arg(timeout.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .context(clone::sox_install_hint())?;
+
+    if !status.success() {
+        anyhow::bail!("Recording failed");
+    }
+
+    // Check for empty recording
+    if let Ok(m) = std::fs::metadata(&audio_path)
+        && m.len() < 1000
+    {
+        let _ = std::fs::remove_file(&audio_path);
+        eprintln!("(no speech detected)");
+        return Ok(());
+    }
+
+    eprintln!("Transcribing...");
+    let text = stt::transcribe(&audio_str, Some(&lang))?;
+    let _ = std::fs::remove_file(&audio_path);
+
+    if text.is_empty() {
+        eprintln!("(no speech detected)");
+    } else {
+        println!("{text}");
+    }
+
+    Ok(())
+}
+
 fn handle_init(mode: InitMode) -> Result<()> {
     let do_cli = matches!(mode, InitMode::Cli | InitMode::All);
     let do_mcp = matches!(mode, InitMode::Mcp | InitMode::All);
@@ -418,14 +492,11 @@ fn handle_init(mode: InitMode) -> Result<()> {
         }
     }
 
-    // --- MCP mode: configure MCP server ---
+    // --- MCP mode: configure MCP server for all AI tools ---
     if do_mcp {
         let vox_bin = std::env::current_exe().context("cannot determine vox binary path")?;
         let vox_bin_str = vox_bin.to_string_lossy().to_string();
-        let home = dirs::home_dir()
-            .context("cannot determine home directory")?
-            .to_string_lossy()
-            .to_string();
+        let home_path = dirs::home_dir().context("cannot determine home directory")?;
 
         let mcp_entry = serde_json::json!({
             "command": vox_bin_str,
@@ -433,27 +504,75 @@ fn handle_init(mode: InitMode) -> Result<()> {
             "env": {}
         });
 
-        let home_path = std::path::PathBuf::from(&home);
+        // Helper to print status and skip non-existent tool dirs
+        let configure = |label: &str, result: Result<String, anyhow::Error>| {
+            let status = result.unwrap_or_else(|e| format!("error: {e}"));
+            println!("[mcp] {label:<20} {status}");
+        };
 
-        let code_path = home_path.join(".claude.json");
-        let code_status = init::inject_mcp_server(&code_path, "vox", &mcp_entry)
-            .unwrap_or_else(|e| format!("error: {e}"));
-        println!("[mcp] Claude Code:    {code_status}");
+        // -- Claude Code --
+        let path = home_path.join(".claude.json");
+        configure(
+            "Claude Code",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
 
-        // Claude Desktop config path is platform-specific
+        // -- Claude Desktop --
         #[cfg(target_os = "macos")]
-        let desktop_path =
-            home_path.join("Library/Application Support/Claude/claude_desktop_config.json");
+        let path = home_path.join("Library/Application Support/Claude/claude_desktop_config.json");
         #[cfg(target_os = "windows")]
-        let desktop_path = dirs::config_dir()
+        let path = dirs::config_dir()
             .map(|d| d.join("Claude/claude_desktop_config.json"))
             .unwrap_or_else(|| home_path.join("AppData/Roaming/Claude/claude_desktop_config.json"));
         #[cfg(target_os = "linux")]
-        let desktop_path = home_path.join(".config/Claude/claude_desktop_config.json");
+        let path = home_path.join(".config/Claude/claude_desktop_config.json");
+        configure(
+            "Claude Desktop",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
 
-        let desktop_status = init::inject_mcp_server(&desktop_path, "vox", &mcp_entry)
-            .unwrap_or_else(|e| format!("error: {e}"));
-        println!("[mcp] Claude Desktop: {desktop_status}");
+        // -- Cursor --
+        let path = home_path.join(".cursor/mcp.json");
+        configure("Cursor", init::inject_mcp_server(&path, "vox", &mcp_entry));
+
+        // -- Windsurf --
+        let path = home_path.join(".codeium/windsurf/mcp_config.json");
+        configure(
+            "Windsurf",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- VS Code / Copilot (user-level settings) --
+        #[cfg(target_os = "macos")]
+        let path = home_path.join("Library/Application Support/Code/User/mcp.json");
+        #[cfg(target_os = "windows")]
+        let path = dirs::config_dir()
+            .map(|d| d.join("Code/User/mcp.json"))
+            .unwrap_or_else(|| home_path.join("AppData/Roaming/Code/User/mcp.json"));
+        #[cfg(target_os = "linux")]
+        let path = home_path.join(".config/Code/User/mcp.json");
+        configure(
+            "VS Code / Copilot",
+            init::inject_vscode_mcp(&path, "vox", &mcp_entry),
+        );
+
+        // -- Zed --
+        #[cfg(target_os = "macos")]
+        let zed_path = home_path.join(".config/zed/settings.json");
+        #[cfg(not(target_os = "macos"))]
+        let zed_path = home_path.join(".config/zed/settings.json");
+        configure("Zed", init::inject_zed_mcp(&zed_path, "vox", &vox_bin_str));
+
+        // -- Codex --
+        let path = home_path.join(".codex/config.toml");
+        configure("Codex", init::inject_codex_mcp(&path, "vox", &vox_bin_str));
+
+        // -- OpenCode --
+        let path = home_path.join(".config/opencode/opencode.json");
+        configure(
+            "OpenCode",
+            init::inject_opencode_mcp(&path, "vox", &mcp_entry),
+        );
     }
 
     // --- Skill mode: create /speak slash command ---

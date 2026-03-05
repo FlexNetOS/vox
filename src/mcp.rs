@@ -8,6 +8,8 @@ use crate::backend::{self, SpeakOptions};
 use crate::clone;
 use crate::db;
 use crate::pack;
+#[cfg(target_os = "macos")]
+use crate::stt;
 
 const SERVER_NAME: &str = "vox";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -30,7 +32,12 @@ GUIDELINES:\n\
 - Keep summaries under 2 sentences\n\
 - Use French by default (the user prefers it)\n\
 - Use vox_config_show to check the user's preferred voice/backend before first use\n\
-- For longer explanations, use vox_speak with a concise summary, not the full text";
+- For longer explanations, use vox_speak with a concise summary, not the full text\n\
+\n\
+VOICE CONVERSATION (vox_hear + vox_speak):\n\
+You can have a voice conversation with the user — you ARE the brain, no API key needed.\n\
+Loop: vox_hear (listen) → you think → vox_speak (respond). Repeat until the user says goodbye.\n\
+When the user asks to \"chat\" or \"talk\" or \"parler\", start this loop.";
 
 #[derive(Deserialize)]
 struct JsonRpcMessage {
@@ -184,7 +191,7 @@ fn tool_definitions() -> Value {
                     },
                     "backend": {
                         "type": "string",
-                        "description": "TTS backend: say (macOS), qwen (macOS, neural), qwen-native (cross-platform)"
+                        "description": "TTS backend: kokoro (default), say (macOS), qwen (macOS, neural), qwen-native (cross-platform)"
                     },
                     "style": {
                         "type": "string",
@@ -210,7 +217,7 @@ fn tool_definitions() -> Value {
                 "properties": {
                     "backend": {
                         "type": "string",
-                        "description": "TTS backend: say, qwen, qwen-native (defaults to system default)"
+                        "description": "TTS backend: kokoro, say, qwen, qwen-native (defaults to kokoro)"
                     }
                 }
             }
@@ -347,6 +354,27 @@ fn tool_definitions() -> Value {
                 },
                 "required": ["name"]
             }
+        },
+        {
+            "name": "vox_hear",
+            "description": "Record audio from the microphone and transcribe it to text (speech-to-text). Recording starts when voice is detected and stops automatically after silence. Use this with vox_speak to create a voice conversation loop — Claude Code is the brain, no API key needed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "lang": {
+                        "type": "string",
+                        "description": "Language code for transcription: en, fr, es, de, etc. (default: fr)"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Maximum recording duration in seconds (default: 30)"
+                    },
+                    "silence": {
+                        "type": "number",
+                        "description": "Seconds of silence before stopping (default: 2.0)"
+                    }
+                }
+            }
         }
     ])
 }
@@ -404,6 +432,7 @@ fn call_tool(name: &str, args: &Value) -> ToolResult {
         "vox_pack_set" => tool_pack_set(args),
         "vox_pack_play" => tool_pack_play(args),
         "vox_pack_remove" => tool_pack_remove(args),
+        "vox_hear" => tool_hear(args),
         _ => tool_err(format!("unknown tool: {name}")),
     }
 }
@@ -834,5 +863,95 @@ fn tool_pack_remove(args: &Value) -> ToolResult {
         }
         Ok(false) => tool_err(format!("Pack '{name}' not found.")),
         Err(e) => tool_err(format!("error: {e}")),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Speech-to-text tool
+// ---------------------------------------------------------------------------
+
+fn tool_hear(args: &Value) -> ToolResult {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = args;
+        return tool_err(
+            "vox_hear requires macOS (mlx-audio STT). Linux/Windows support coming soon.".into(),
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let lang = args.get("lang").and_then(|v| v.as_str()).unwrap_or("fr");
+        let timeout = args.get("timeout").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
+        let silence_secs = args.get("silence").and_then(|v| v.as_f64()).unwrap_or(2.0);
+
+        let tmp_dir = std::env::temp_dir();
+        let audio_path = tmp_dir.join("vox_hear_input.wav");
+        let audio_str = audio_path.to_string_lossy().to_string();
+
+        // Record with silence detection using sox `rec`.
+        // silence 1 0.1 1% = skip leading silence (start on voice)
+        // 1 <silence_secs> 1% = stop after N seconds of silence
+        // trim 0 <timeout> = safety max duration
+        let status = std::process::Command::new("rec")
+            .arg(&audio_str)
+            .arg("rate")
+            .arg("16k")
+            .arg("silence")
+            .arg("1")
+            .arg("0.1")
+            .arg("1%")
+            .arg("1")
+            .arg(format!("{silence_secs}"))
+            .arg("1%")
+            .arg("trim")
+            .arg("0")
+            .arg(timeout.to_string())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+
+        let status = match status {
+            Ok(s) => s,
+            Err(e) => {
+                return tool_err(format!(
+                    "Failed to record audio: {e}. {}",
+                    clone::sox_install_hint()
+                ));
+            }
+        };
+
+        if !status.success() {
+            return tool_err("Recording failed (sox exited with error)".into());
+        }
+
+        // Check that the file exists and has content
+        match std::fs::metadata(&audio_path) {
+            Ok(m) if m.len() < 1000 => {
+                let _ = std::fs::remove_file(&audio_path);
+                return tool_ok("(silence — no speech detected)".into());
+            }
+            Err(_) => {
+                return tool_err("Recording file not found".into());
+            }
+            _ => {}
+        }
+
+        // Transcribe
+        let text = match stt::transcribe(&audio_str, Some(lang)) {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = std::fs::remove_file(&audio_path);
+                return tool_err(format!("Transcription failed: {e}"));
+            }
+        };
+
+        let _ = std::fs::remove_file(&audio_path);
+
+        if text.is_empty() {
+            tool_ok("(no speech detected)".into())
+        } else {
+            tool_ok(text)
+        }
     }
 }

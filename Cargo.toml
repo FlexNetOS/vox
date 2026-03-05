@@ -3,7 +3,7 @@ name = "vox"
 version = "0.4.0"
 edition = "2024"
 description = "Cross-platform TTS CLI — local voice synthesis with Qwen and system say"
-license = "MIT"
+license = "LicenseRef-Proprietary"
 repository = "https://github.com/rtk-ai/vox"
 keywords = ["tts", "voice", "speech", "cli"]
 categories = ["command-line-utilities", "multimedia::audio"]
@@ -18,7 +18,9 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 dirs = "6"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.12", features = ["blocking", "json", "stream"] }
+tokio = { version = "1", features = ["rt", "net", "io-util"] }
+futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"

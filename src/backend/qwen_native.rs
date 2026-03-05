@@ -14,7 +14,7 @@ pub struct QwenNativeBackend;
 /// Uses Mutex because Qwen3TTS contains RefCell (not Sync).
 static MODEL: Mutex<Option<Qwen3TTS>> = Mutex::new(None);
 
-fn with_model<F, T>(model_id: Option<&str>, f: F) -> Result<T>
+pub fn with_model<F, T>(model_id: Option<&str>, f: F) -> Result<T>
 where
     F: FnOnce(&Qwen3TTS) -> Result<T>,
 {
@@ -22,16 +22,35 @@ where
         .lock()
         .map_err(|e| anyhow::anyhow!("model lock poisoned: {e}"))?;
     if guard.is_none() {
-        let id = model_id.unwrap_or(DEFAULT_MODEL);
-        eprintln!("Loading model {id} (downloading if needed)...");
-        let paths = ModelPaths::download(Some(id))
-            .context("failed to download model from HuggingFace Hub")?;
-        let device = qwen3_tts::auto_device().context("failed to detect compute device")?;
-        let model =
-            Qwen3TTS::from_paths(&paths, device).context("failed to load Qwen3-TTS model")?;
-        *guard = Some(model);
+        load_model_inner(&mut guard, model_id)?;
     }
     f(guard.as_ref().unwrap())
+}
+
+fn load_model_inner(
+    guard: &mut std::sync::MutexGuard<'_, Option<Qwen3TTS>>,
+    model_id: Option<&str>,
+) -> Result<()> {
+    let id = model_id.unwrap_or(DEFAULT_MODEL);
+    eprintln!("Loading model {id} (downloading if needed)...");
+    let paths =
+        ModelPaths::download(Some(id)).context("failed to download model from HuggingFace Hub")?;
+    let device = qwen3_tts::auto_device().context("failed to detect compute device")?;
+    eprintln!("Using device: {device:?}");
+    let model = Qwen3TTS::from_paths(&paths, device).context("failed to load Qwen3-TTS model")?;
+    **guard = Some(model);
+    Ok(())
+}
+
+/// Pre-load the model so subsequent calls are instant.
+pub fn preload_model(model_id: Option<&str>) -> Result<()> {
+    let mut guard = MODEL
+        .lock()
+        .map_err(|e| anyhow::anyhow!("model lock poisoned: {e}"))?;
+    if guard.is_none() {
+        load_model_inner(&mut guard, model_id)?;
+    }
+    Ok(())
 }
 
 /// Map our short language codes to qwen3_tts::Language.

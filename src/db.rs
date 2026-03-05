@@ -149,9 +149,9 @@ pub fn set_preference(conn: &Connection, key: &str, value: &str) -> Result<()> {
         }
         "backend" => {
             #[cfg(target_os = "macos")]
-            let valid_backends = ["say", "qwen", "qwen-native"];
+            let valid_backends = ["kokoro", "say", "qwen", "qwen-native"];
             #[cfg(not(target_os = "macos"))]
-            let valid_backends = ["qwen-native"];
+            let valid_backends = ["kokoro", "qwen-native"];
             if !valid_backends.contains(&value) {
                 anyhow::bail!(
                     "Unknown backend: {value}. Must be one of: {}",
