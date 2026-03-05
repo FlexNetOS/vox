@@ -117,4 +117,4 @@ All state is stored locally in `~/.config/vox/`:
 
 ## License
 
-[MIT](LICENSE)
+[Source-Available](LICENSE) — Free for individuals and teams ≤ 20 people. Enterprise license required for larger organizations. Contact: license@rtk.ai
