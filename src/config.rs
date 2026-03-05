@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+#[cfg(target_os = "macos")]
+pub const DEFAULT_BACKEND: &str = "say";
+#[cfg(not(target_os = "macos"))]
 pub const DEFAULT_BACKEND: &str = "kokoro";
 
 pub const SUPPORTED_LANGS: &[&str] = &[
