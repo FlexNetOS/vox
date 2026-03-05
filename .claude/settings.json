@@ -1,15 +1,3 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "/Users/patrick/.cargo/bin/vox -b say \"Terminé.\"",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ]
-  }
+  "hooks": {}
 }
