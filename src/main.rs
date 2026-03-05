@@ -759,28 +759,105 @@ fn handle_pack(action: PackAction) -> Result<()> {
     Ok(())
 }
 
+fn format_duration(ms: u64) -> String {
+    let total_secs = ms / 1000;
+    let hours = total_secs / 3600;
+    let mins = (total_secs % 3600) / 60;
+    let secs = total_secs % 60;
+    if hours > 0 {
+        format!("{hours}h {mins:02}m {secs:02}s")
+    } else if mins > 0 {
+        format!("{mins}m {secs:02}s")
+    } else {
+        format!("{secs}s")
+    }
+}
+
 fn handle_stats() -> Result<()> {
     let conn = db::open()?;
     let (count, total_chars) = db::get_usage_summary(&conn)?;
 
-    println!("Total requests: {count}");
-    println!("Total characters: {total_chars}");
-
-    if count > 0 {
-        println!("\nRecent usage:");
-        let entries = db::get_usage_stats(&conn)?;
-        for e in &entries {
-            let voice_str = e.voice.as_deref().unwrap_or("-");
-            let lang_str = e.lang.as_deref().unwrap_or("-");
-            let dur_str = e
-                .duration_ms
-                .map(|d| format!("{d}ms"))
-                .unwrap_or_else(|| "-".into());
-            println!(
-                "  {} | {} | voice={} lang={} | {}chars | {}",
-                e.timestamp, e.backend, voice_str, lang_str, e.text_len, dur_str
-            );
-        }
+    if count == 0 {
+        println!("No usage recorded yet.");
+        return Ok(());
     }
+
+    let total_duration_ms = db::get_total_duration_ms(&conn)?;
+    let backend_stats = db::get_backend_stats(&conn)?;
+    let lang_stats = db::get_lang_stats(&conn)?;
+
+    // Header
+    let total_secs = total_duration_ms as f64 / 1000.0;
+    let speech_str = format_duration(total_duration_ms);
+
+    println!("📊 vox stats");
+    println!("═══════════════════════════════════════════════════");
+    println!("  🎙  Total speech time:  {speech_str}");
+    println!("  📞  Total calls:        {count}");
+    println!("  📝  Total characters:   {total_chars}");
+    if count > 0 && total_secs > 0.0 {
+        println!(
+            "  ⚡  Avg latency:        {:.1}s/call",
+            total_secs / count as f64
+        );
+        println!(
+            "  📏  Avg length:         {} chars/call",
+            total_chars / count
+        );
+        let chars_per_sec = total_chars as f64 / total_secs;
+        println!("  🔄  Throughput:         {chars_per_sec:.0} chars/s");
+    }
+
+    // By backend
+    println!("\n  Backend breakdown:");
+    println!("  ─────────────────────────────────────────────────");
+    for b in &backend_stats {
+        let pct = (b.calls as f64 / count as f64) * 100.0;
+        let dur = format_duration(b.total_duration_ms);
+        let avg = if b.calls > 0 {
+            format!("{:.1}s avg", b.total_duration_ms as f64 / 1000.0 / b.calls as f64)
+        } else {
+            "-".into()
+        };
+        println!(
+            "    {:<14} {:>4} calls ({pct:>2.0}%)  {:>6} chars  {dur:>10}  {avg}",
+            b.backend, b.calls, b.total_chars,
+        );
+    }
+
+    // By language
+    println!("\n  Language breakdown:");
+    println!("  ─────────────────────────────────────────────────");
+    for l in &lang_stats {
+        let pct = (l.calls as f64 / count as f64) * 100.0;
+        let bar_len = (pct / 5.0).round() as usize;
+        let bar: String = "█".repeat(bar_len);
+        println!(
+            "    {:<6} {:>4} calls ({pct:>2.0}%)  {bar}",
+            l.lang, l.calls
+        );
+    }
+
+    // Recent 10
+    let entries = db::get_usage_stats(&conn)?;
+    println!("\n  Recent:");
+    println!("  ─────────────────────────────────────────────────");
+    for e in entries.iter().take(10) {
+        let lang_str = e.lang.as_deref().unwrap_or("?");
+        let dur_str = e
+            .duration_ms
+            .map(|d| format!("{:.1}s", d as f64 / 1000.0))
+            .unwrap_or_else(|| "-".into());
+        let ts = if e.timestamp.len() >= 16 {
+            &e.timestamp[..16]
+        } else {
+            &e.timestamp
+        };
+        println!(
+            "    {ts}  {:<14} {lang_str:<4} {:>5} chars  {dur_str:>6}",
+            e.backend, e.text_len,
+        );
+    }
+
     Ok(())
 }

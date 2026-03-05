@@ -281,3 +281,51 @@ pub fn get_usage_summary(conn: &Connection) -> Result<(u64, u64)> {
     })?;
     Ok((count, total_chars))
 }
+
+#[derive(Debug)]
+pub struct BackendStats {
+    pub backend: String,
+    pub calls: u64,
+    pub total_chars: u64,
+    pub total_duration_ms: u64,
+}
+
+#[derive(Debug)]
+pub struct LangStats {
+    pub lang: String,
+    pub calls: u64,
+}
+
+pub fn get_backend_stats(conn: &Connection) -> Result<Vec<BackendStats>> {
+    let mut stmt = conn.prepare(
+        "SELECT backend, COUNT(*), COALESCE(SUM(text_len), 0), COALESCE(SUM(duration_ms), 0) FROM usage_log GROUP BY backend ORDER BY COUNT(*) DESC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(BackendStats {
+            backend: row.get(0)?,
+            calls: row.get::<_, i64>(1)? as u64,
+            total_chars: row.get::<_, i64>(2)? as u64,
+            total_duration_ms: row.get::<_, i64>(3)? as u64,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn get_lang_stats(conn: &Connection) -> Result<Vec<LangStats>> {
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(lang, '?'), COUNT(*) FROM usage_log GROUP BY lang ORDER BY COUNT(*) DESC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(LangStats {
+            lang: row.get(0)?,
+            calls: row.get::<_, i64>(1)? as u64,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn get_total_duration_ms(conn: &Connection) -> Result<u64> {
+    let mut stmt = conn.prepare("SELECT COALESCE(SUM(duration_ms), 0) FROM usage_log")?;
+    let total = stmt.query_row([], |row| row.get::<_, i64>(0))?;
+    Ok(total as u64)
+}
