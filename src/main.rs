@@ -573,6 +573,69 @@ fn handle_init(mode: InitMode) -> Result<()> {
             "OpenCode",
             init::inject_opencode_mcp(&path, "vox", &mcp_entry),
         );
+
+        // -- Gemini Code Assist --
+        let path = home_path.join(".gemini/settings.json");
+        configure(
+            "Gemini",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- Amazon Q --
+        let path = home_path.join(".aws/amazonq/mcp.json");
+        configure(
+            "Amazon Q",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- Cline (VS Code extension) --
+        #[cfg(target_os = "macos")]
+        let path = home_path.join("Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json");
+        #[cfg(target_os = "windows")]
+        let path = dirs::config_dir()
+            .map(|d| d.join("Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json"))
+            .unwrap_or_else(|| home_path.join("AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json"));
+        #[cfg(target_os = "linux")]
+        let path = home_path.join(".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json");
+        configure(
+            "Cline",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- Roo Code (VS Code extension) --
+        #[cfg(target_os = "macos")]
+        let path = home_path.join("Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json");
+        #[cfg(target_os = "windows")]
+        let path = dirs::config_dir()
+            .map(|d| d.join("Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json"))
+            .unwrap_or_else(|| home_path.join("AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json"));
+        #[cfg(target_os = "linux")]
+        let path = home_path.join(".config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json");
+        configure(
+            "Roo Code",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- Kilo Code (VS Code extension) --
+        #[cfg(target_os = "macos")]
+        let path = home_path.join("Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/cline_mcp_settings.json");
+        #[cfg(target_os = "windows")]
+        let path = dirs::config_dir()
+            .map(|d| d.join("Code/User/globalStorage/kilocode.kilo-code/settings/cline_mcp_settings.json"))
+            .unwrap_or_else(|| home_path.join("AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/settings/cline_mcp_settings.json"));
+        #[cfg(target_os = "linux")]
+        let path = home_path.join(".config/Code/User/globalStorage/kilocode.kilo-code/settings/cline_mcp_settings.json");
+        configure(
+            "Kilo Code",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
+
+        // -- Amp --
+        let path = home_path.join(".ampcode/settings.json");
+        configure(
+            "Amp",
+            init::inject_mcp_server(&path, "vox", &mcp_entry),
+        );
     }
 
     // --- Skill mode: create /speak slash command ---
