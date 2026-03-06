@@ -1,3 +1,8 @@
+//! Auto-configuration for 14 AI tools (Claude Code, Cursor, VS Code, Zed, etc.).
+//!
+//! `vox init` injects MCP server config into each tool's settings file.
+//! Idempotent — safe to run multiple times without duplicating entries.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

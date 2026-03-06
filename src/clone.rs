@@ -1,3 +1,5 @@
+//! Voice cloning — audio validation, microphone recording, clone resolution.
+
 use std::path::Path;
 use std::process::Command;
 

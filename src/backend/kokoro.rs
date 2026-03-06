@@ -1,3 +1,7 @@
+//! Kokoro TTS backend — pure Rust ONNX inference via Python kokoro-onnx bridge.
+//!
+//! Cross-platform, no GPU required. Model files (~80MB) downloaded separately.
+
 use std::process::Command;
 
 use anyhow::{Context, Result};

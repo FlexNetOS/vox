@@ -1,3 +1,7 @@
+//! Speech-to-text via mlx-whisper (macOS only).
+//!
+//! Runs `mlx_whisper.transcribe()` in a Python subprocess, returns the text as a String.
+
 use std::process::Command;
 
 use anyhow::{Context, Result};

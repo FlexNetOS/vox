@@ -1,3 +1,8 @@
+//! MCP (Model Context Protocol) server — JSON-RPC 2.0 over stdio.
+//!
+//! Exposes 14 tools for AI assistants: speak, hear, voice cloning, config, stats, packs.
+//! Launched via `vox serve` and auto-configured by `vox init` for 14 AI tools.
+
 use std::io::{self, BufRead, Write};
 
 use anyhow::Result;

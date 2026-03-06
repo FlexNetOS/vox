@@ -1,76 +1,75 @@
 # vox
 
-Cross-platform TTS CLI — local voice synthesis with three backends.
+Cross-platform TTS CLI with four backends and MCP server for AI assistants.
 
 ```
-                         vox
-                          |
-            +-------------+-------------+
-            |             |             |
-          say          qwen        qwen-native
-       (macOS)     (MLX/Python)    (pure Rust)
-        native      Apple Silicon   cross-platform
-                                   CPU/Metal/CUDA
-                          |
-                        rodio
-                    (audio playback)
+                           vox
+                            |
+          +--------+--------+--------+--------+
+          |        |                 |        |
+        say      qwen          qwen-native  kokoro
+     (macOS)  (MLX/Python)    (pure Rust)  (pure Rust)
+      native  Apple Silicon   CPU/Metal    CPU/GPU
+                               /CUDA
+                        |
+                      rodio
+                  (audio playback)
 ```
 
 ## Install
 
 ```bash
+# Quick install (macOS / Linux / WSL)
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/vox/main/install.sh | sh
+
 # From source
 cargo install --path .
 
-# Quick install (macOS / Linux / WSL)
-curl -fsSL https://raw.githubusercontent.com/rtk-ai/vox/main/install.sh | sh
+# With GPU acceleration
+cargo install --path . --features metal  # macOS Apple Silicon
+cargo install --path . --features cuda   # Linux NVIDIA
 ```
 
 | Platform | Default backend | GPU |
 |----------|----------------|-----|
 | macOS | `say` | `--features metal` |
-| Linux / WSL | `qwen-native` | `--features cuda` |
+| Linux / WSL | `kokoro` | `--features cuda` |
 
 Linux requires `sudo apt install libasound2-dev`.
 
-## Usage with Claude Code
+## Quick start
 
 ```bash
-vox init                # MCP server (default)
+vox "Hello, world."                     # Speak with default backend
+vox -b kokoro -l fr "Bonjour"           # Specific backend + language
+echo "Piped text" | vox                 # Read from stdin
+vox --list-voices                       # List available voices
+```
+
+## AI assistant integration
+
+One command configures **14 AI tools** (Claude Code, Cursor, VS Code, Zed, Codex, Gemini, Amazon Q, and more):
+
+```bash
+vox init                # MCP server (default) — all AI tools
 vox init -m cli         # CLAUDE.md + Stop hook
 vox init -m skill       # /speak slash command
 vox init -m all         # all of the above
 ```
 
-Each mode sets up a different integration:
-
-| Mode | What it does |
-|------|-------------|
-| `mcp` | Registers `vox serve` as an MCP server in `~/.claude.json` (Claude Code) and Claude Desktop config. Exposes 8 tools: `vox_speak`, `vox_list_voices`, `vox_clone_*`, `vox_config_*`, `vox_stats`. |
-| `cli` | Creates a `CLAUDE.md` in your project with instructions for Claude to call `vox` after significant tasks. Adds a `Stop` hook in `.claude/settings.json` that says "Terminé" after each response. |
-| `skill` | Creates a `/speak` slash command in `~/.claude/commands/speak.md`. |
-| `all` | Runs all three modes (default). |
+The MCP server exposes 14 tools: `vox_speak`, `vox_hear`, `vox_list_voices`, `vox_clone_*`, `vox_config_*`, `vox_stats`, `vox_pack_*`.
 
 ```
-  Claude Code
+  AI Assistant (Claude Code, Cursor, ...)
       |
    MCP stdio
       |
-  vox serve ──> vox_speak, vox_list_voices, ...
+  vox serve ──> vox_speak, vox_hear, vox_clone_add, ...
 ```
 
 Running `vox init` again is safe — it skips files that are already configured.
 
-## Standalone CLI
-
-```bash
-vox "Hello, world."
-vox -b qwen-native "Cross-platform TTS."
-echo "Hello" | vox
-vox --list-voices
-```
-
-### Voice cloning
+## Voice cloning
 
 ```bash
 vox clone add patrick --audio ~/voice.wav --text "Transcription"
@@ -80,25 +79,34 @@ vox clone list
 vox clone remove patrick
 ```
 
-### Preferences
+## Preferences
 
 ```bash
 vox config show
-vox config set backend qwen
+vox config set backend kokoro
 vox config set lang fr
 vox config set voice Chelsie
+vox config set gender feminine
+vox config set style warm
 vox config reset
 ```
 
-### Optional: Qwen backend (macOS)
-
-Neural TTS via Python/MLX on Apple Silicon:
+## Sound packs
 
 ```bash
-uv pip install mlx-audio
+vox pack install peon              # Install a pack
+vox pack set peon                  # Activate it
+vox pack play greeting             # Play a sound
+vox pack list                      # List available packs
 ```
 
-Model downloaded automatically on first use (~1.2 GB).
+## Voice conversation (macOS)
+
+```bash
+export ANTHROPIC_API_KEY=sk-...
+vox chat -l fr                     # Talk with Claude
+vox hear -l fr                     # Speech-to-text only
+```
 
 ## Data
 
@@ -106,8 +114,9 @@ All state is stored locally in `~/.config/vox/`:
 
 ```
 ~/.config/vox/
-├── vox.db          # SQLite: preferences, voice clones, usage logs
-└── clones/         # audio files for voice clones
+  vox.db          # SQLite: preferences, voice clones, usage logs
+  clones/         # Audio files for voice clones
+  packs/          # Installed sound packs
 ```
 
 | Env var | Description |
@@ -115,6 +124,14 @@ All state is stored locally in `~/.config/vox/`:
 | `VOX_CONFIG_DIR` | Override config directory |
 | `VOX_DB_PATH` | Override database path |
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | Architecture technique, backends, DB schema, protocole MCP, securite |
+| [Features](docs/FEATURES.md) | Documentation fonctionnelle de toutes les commandes et fonctionnalites |
+| [Guide](docs/GUIDE.md) | Guide utilisateur, installation, demarrage rapide, depannage |
+
 ## License
 
-[Source-Available](LICENSE) — Free for individuals and teams ≤ 20 people. Enterprise license required for larger organizations. Contact: license@rtk.ai
+[Source-Available](LICENSE) — Free for individuals and teams up to 20 people. Enterprise license required for larger organizations. Contact: license@rtk.ai

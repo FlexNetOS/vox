@@ -1,3 +1,8 @@
+//! TTS backend abstraction layer.
+//!
+//! Each backend implements `TtsBackend` and is selected at runtime via `get_backend()`.
+//! Platform-gated: `say` and `qwen` are macOS-only; `kokoro` and `qwen-native` are cross-platform.
+
 pub mod kokoro;
 #[cfg(target_os = "macos")]
 pub mod qwen;

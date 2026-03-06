@@ -1,3 +1,8 @@
+//! Sound packs — themed audio clips (peon-ping compatible).
+//!
+//! Packs are downloaded from the peon-ping GitHub repo and stored in `~/.config/vox/packs/`.
+//! Each pack has a manifest.json with categories (greeting, complete, error, etc.).
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;

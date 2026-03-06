@@ -1,3 +1,9 @@
+//! Qwen-native TTS backend — pure Rust inference via candle (qwen3-tts-rs).
+//!
+//! Cross-platform with optional Metal (macOS) or CUDA (Linux) GPU acceleration.
+//! Model is loaded once and kept warm in a global Mutex for the process lifetime.
+//! Supports voice cloning via reference audio + text prompt.
+
 use std::sync::Mutex;
 
 use anyhow::{Context, Result};

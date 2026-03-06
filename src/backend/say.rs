@@ -1,3 +1,7 @@
+//! macOS `say` backend — system TTS via /usr/bin/say.
+//!
+//! Near-zero latency, uses Apple's built-in voices. No voice cloning support.
+
 use std::process::Command;
 
 use anyhow::{Context, Result};
