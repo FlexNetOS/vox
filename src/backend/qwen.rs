@@ -1,3 +1,8 @@
+//! Qwen TTS backend — MLX-Audio Python on Apple Silicon (macOS only).
+//!
+//! Supports voice cloning via ref_audio/ref_text. Multi-chunk pipeline overlaps
+//! generation with playback to reduce perceived latency on long texts.
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 

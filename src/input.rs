@@ -1,3 +1,5 @@
+//! Text input handling — CLI arguments or stdin pipe.
+
 use std::io::{self, IsTerminal, Read};
 
 use anyhow::{Result, bail};

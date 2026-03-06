@@ -1,3 +1,5 @@
+//! Configuration paths, platform defaults, and validation enums.
+
 use std::path::PathBuf;
 
 #[cfg(target_os = "macos")]

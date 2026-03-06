@@ -1,3 +1,8 @@
+//! SQLite database — preferences, voice clones, usage logging, and statistics.
+//!
+//! All state is persisted in `~/.config/vox/vox.db` with WAL mode enabled.
+//! Schema is auto-migrated on first open.
+
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 

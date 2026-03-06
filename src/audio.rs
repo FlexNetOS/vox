@@ -1,3 +1,7 @@
+//! Cross-platform audio playback via rodio.
+//!
+//! Supports blocking and async (threaded) playback of WAV/MP3/OGG/FLAC files.
+
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
