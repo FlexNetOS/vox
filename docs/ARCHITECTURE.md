@@ -68,46 +68,148 @@ Chaque backend implemente ce trait. Le dispatch se fait via `get_backend(name)` 
 - **macOS**: `say` (zero latence, voix systeme)
 - **Linux / Windows**: `kokoro` (Rust pur, pas de dependance Python)
 
+## SpeakOptions
+
+Structure centrale passee a chaque backend via `TtsBackend::speak()`. Tous les champs sont optionnels — les backends ignorent ceux qu'ils ne supportent pas.
+
+```rust
+pub struct SpeakOptions {
+    pub voice: Option<String>,      // Nom de voix (ex: "Chelsie", "af_heart")
+    pub lang: Option<String>,       // Code langue ISO (ex: "fr", "en")
+    pub rate: Option<u32>,          // Debit en mots/min (say uniquement)
+    pub gender: Option<String>,     // "feminine" | "masculine"
+    pub style: Option<String>,      // "calm" | "energetic" | "warm" | ...
+    pub ref_audio: Option<String>,  // Chemin audio pour voice cloning
+    pub ref_text: Option<String>,   // Transcription de l'audio de reference
+    pub model: Option<String>,      // Model ID (ex: Qwen/Qwen3-TTS-12Hz-0.6B-Base)
+}
+```
+
+**Resolution de priorite** : flags CLI / params MCP > preferences DB > valeurs par defaut du backend.
+
+## Resolution du voice cloning
+
+Quand un utilisateur demande `-v patrick` (ou `voice: "patrick"` via MCP), le systeme :
+
+1. Cherche un clone nomme `patrick` dans la table `voice_clones` via `clone::resolve_voice()`
+2. Si trouve : extrait `ref_audio` et `ref_text` du clone
+3. Verifie le backend courant — si c'est `say` ou `kokoro` (qui ne supportent pas le cloning), **bascule automatiquement** :
+   - **macOS** : vers `qwen` (MLX-Audio Python)
+   - **Linux / Windows** : vers `qwen-native` (Rust pur)
+4. Met `voice = None` (ne pas passer le nom du clone comme voix au backend)
+5. Passe `ref_audio` + `ref_text` dans `SpeakOptions`
+
+Ce mecanisme est identique dans le CLI (`main.rs::handle_speak`) et le serveur MCP (`mcp.rs::tool_speak`).
+
+## Playback audio asynchrone (PlayHandle)
+
+Le module `audio.rs` fournit deux modes de lecture via `rodio` :
+
+- **`play_audio_blocking(path)`** — bloque le thread jusqu'a la fin de la lecture. Supporte WAV, MP3, OGG, FLAC.
+- **`play_wav_async(path)`** — lance la lecture dans un thread et retourne un `PlayHandle`.
+
+```rust
+pub struct PlayHandle {
+    join: Option<thread::JoinHandle<Result<()>>>,
+}
+
+impl PlayHandle {
+    pub fn wait(self) -> Result<()>;  // Bloque jusqu'a la fin
+}
+
+impl Drop for PlayHandle {
+    fn drop(&mut self);  // Attend la fin du thread au drop
+}
+```
+
+Le pattern `PlayHandle` est utilise par le backend `qwen` pour le pipeline de chunking : pendant que le chunk N est joue, le chunk N+1 est genere en parallele.
+
+## Pipeline de decoupage par phrases (qwen backend)
+
+Le backend `qwen` decoupe le texte long en phrases pour reduire la latence percue :
+
+1. **Split** : decoupe sur `.` `!` `?` `;`
+2. **Merge** : fusionne les petites phrases consecutives tant que `len < MIN_CHUNK_CHARS` (120 caracteres) — pour reduire le nombre d'appels subprocess Python
+3. **Pipeline** :
+   - Si 1 seul chunk : appel direct avec `--play --stream` (latence optimale)
+   - Si N chunks : pipeline chevauche (overlap generation + playback) :
+     - Genere chunk 0 → joue chunk 0 (async) + genere chunk 1 en parallele
+     - Quand chunk 1 genere → attend fin chunk 0 → joue chunk 1 + genere chunk 2...
+     - Resultat : la latence inter-chunks est masquee
+
 ## Base de donnees
 
 SQLite via `rusqlite` avec WAL mode. Fichier: `~/.config/vox/vox.db`.
 
-### Schema
+### Schema DDL complet
 
 ```sql
--- Preferences utilisateur (une seule ligne, UPSERT)
-CREATE TABLE preferences (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    backend TEXT, voice TEXT, lang TEXT, rate INTEGER,
-    gender TEXT, style TEXT, model TEXT, pack TEXT
+CREATE TABLE IF NOT EXISTS preferences (
+    id      INTEGER PRIMARY KEY CHECK (id = 1),
+    backend TEXT,
+    voice   TEXT,
+    lang    TEXT,
+    rate    INTEGER,
+    gender  TEXT,
+    style   TEXT,
+    model   TEXT
 );
+-- Migration ajoutee dynamiquement pour les bases existantes :
+-- ALTER TABLE preferences ADD COLUMN pack TEXT;
 
--- Voice clones
-CREATE TABLE voice_clones (
-    name TEXT PRIMARY KEY,
-    ref_audio TEXT NOT NULL,
-    ref_text TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-);
-
--- Journal d'utilisation
-CREATE TABLE usage_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT DEFAULT (datetime('now')),
-    backend TEXT NOT NULL,
-    voice TEXT, lang TEXT,
-    text_len INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS usage_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%S','now')),
+    backend     TEXT NOT NULL,
+    voice       TEXT,
+    lang        TEXT,
+    text_len    INTEGER NOT NULL,
     duration_ms INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS voice_clones (
+    name       TEXT PRIMARY KEY,
+    ref_audio  TEXT NOT NULL,
+    ref_text   TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%S','now'))
 );
 ```
 
+**Migration** : la colonne `pack` sur `preferences` est ajoutee via `ALTER TABLE` si absente (detection par `SELECT pack FROM preferences LIMIT 0`). Cela permet la compatibilite avec les bases creees avant cette fonctionnalite.
+
+**UPSERT** : `set_preference()` insere d'abord une ligne vide avec `ON CONFLICT(id) DO NOTHING`, puis fait `UPDATE`. La contrainte `CHECK (id = 1)` garantit une seule ligne.
+
 ### Requetes d'agregation
 
-- `get_usage_summary()` — total calls + total chars
-- `get_backend_stats()` — calls, chars, duration par backend
-- `get_lang_stats()` — calls par langue
-- `get_total_duration_ms()` — temps de parole cumule
-- `get_usage_stats()` — 50 dernieres entrees
+| Fonction | Requete | Retour |
+|----------|---------|--------|
+| `get_usage_summary()` | `SELECT COUNT(*), SUM(text_len)` | `(u64, u64)` — total calls + total chars |
+| `get_backend_stats()` | `GROUP BY backend` + COUNT/SUM | `Vec<BackendStats>` — calls, chars, duration par backend |
+| `get_lang_stats()` | `GROUP BY lang` + COUNT | `Vec<LangStats>` — calls par langue |
+| `get_total_duration_ms()` | `SUM(duration_ms)` | `u64` — temps de parole cumule en ms |
+| `get_usage_stats()` | `ORDER BY id DESC LIMIT 50` | `Vec<UsageEntry>` — 50 dernieres entrees |
+
+## Strategie de securite
+
+| Vecteur | Protection | Implementation |
+|---------|-----------|----------------|
+| SQL injection | Parametres lies (`?1`, `?2`, ...) | `rusqlite::params![]` partout, jamais d'interpolation de valeurs utilisateur |
+| Cles de preferences invalides | Whitelist validee | `set_preference()` valide `key` contre `["backend", "voice", "lang", "rate", "gender", "style", "model", "pack"]` |
+| Valeurs de preferences invalides | Validation par type/enum | `gender` → `Gender::parse()`, `style` → `IntonationStyle::parse()`, `rate` → `parse::<u32>()`, `lang` → `SUPPORTED_LANGS.contains()`, `backend` → whitelist plateforme |
+| Path traversal (audio) | Extensions validees | `validate_audio()` verifie existence + extension dans `[wav, mp3, flac, ogg, m4a]` |
+| Injection shell | Pas de `sh -c` | Toutes les commandes externes via `std::process::Command` avec args separes |
+| Backends invalides | Enum par plateforme | macOS: `[kokoro, say, qwen, qwen-native]`, autres: `[kokoro, qwen-native]` |
+
+## Latence par backend : cold start vs warm start
+
+| Backend | Cold start | Warm start | Notes |
+|---------|-----------|------------|-------|
+| `say` | ~100ms | ~100ms | Pas de modele a charger, appel systeme direct |
+| `kokoro` | ~5-8s | ~2-5s | Chargement ONNX + voices.bin via Python. Pas de cache persistent |
+| `qwen` | ~5-15s | ~1-2s | Cold = telechargement modele (~1.2 GB) + chargement Python. Warm = Python startup seul |
+| `qwen-native` | ~10-30s | ~2-5s | Cold = telechargement HuggingFace + chargement candle. Warm = modele en memoire (`static Mutex<Option<Qwen3TTS>>`) |
+
+**Note** : `qwen-native` garde le modele en memoire via un `Mutex` global — les appels suivants au meme processus (ex: serveur MCP) sont donc en warm start. Les appels CLI individuels sont toujours en cold start.
 
 ## Protocole MCP
 

@@ -67,10 +67,39 @@ vox config set gender feminine     # Genre vocal
 vox config set style warm          # Style d'intonation
 vox config set rate 180            # Debit (say uniquement)
 vox config set model <model_id>    # Modele TTS specifique
+vox config set pack peon           # Sound pack actif
 vox config reset                   # Reinitialiser tout
 ```
 
-Priorite de resolution : **flags CLI > preferences DB > valeurs par defaut**.
+Priorite de resolution : **flags CLI / params MCP > preferences DB > valeurs par defaut**.
+
+### Reference des cles de preferences
+
+| Cle | Valeurs acceptees | Validation |
+|-----|-------------------|-----------|
+| `backend` | macOS: `kokoro`, `say`, `qwen`, `qwen-native` / Autres: `kokoro`, `qwen-native` | Whitelist par plateforme |
+| `voice` | Nom de voix ou de clone (texte libre) | Aucune (le backend valide au moment du speak) |
+| `lang` | `en`, `fr`, `es`, `de`, `it`, `pt`, `zh`, `ja`, `ko`, `ru`, `ar`, `nl` | Validation contre `SUPPORTED_LANGS` |
+| `rate` | Entier positif (mots/min, ex: `150`, `200`) | Parse en `u32`, erreur si non-numerique |
+| `gender` | `feminine`, `masculine` | Parse via `Gender::parse()`, erreur sinon |
+| `style` | `calm`, `energetic`, `warm`, `authoritative`, `cheerful`, `serious` | Parse via `IntonationStyle::parse()`, erreur sinon |
+| `model` | ID de modele HuggingFace (texte libre, ex: `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit`) | Aucune (le backend valide au chargement) |
+| `pack` | Nom de pack installe (texte libre) | Aucune (verifie a l'utilisation) |
+
+### Matrice des capacites par backend
+
+| Capacite | `say` | `kokoro` | `qwen` | `qwen-native` |
+|----------|-------|----------|--------|----------------|
+| Voice cloning | Non | Non | Oui | Oui |
+| Rate (debit) | Oui (`-r`) | Non | Non | Non |
+| Gender hint | Non | Non | Oui | Oui |
+| Style hint | Non | Non | Oui | Oui |
+| Choix de voix | Oui (voix Apple) | Oui (prefixe `xx_nom`) | Oui (Chelsie, Aidan, Luna, Ryan) | Non (clones uniquement) |
+| Choix de modele | Non | Non | Non | Oui |
+| Langues | Toutes (via voix) | en, fr, ja, zh, ko, hi, it, pt, de, es | en, fr, es, de, it, pt, zh, ja, ko, ru, ar, nl | en, fr, es, de, it, pt, zh, ja, ko, ru |
+| Plateforme | macOS | Toutes | macOS (Apple Silicon) | Toutes |
+| GPU | Non | Non | Non (CPU MLX) | Metal (macOS) / CUDA (Linux) |
+| Dependance externe | Aucune | `kokoro-onnx`, `soundfile` (Python) | `mlx-audio` (Python) | Aucune (Rust pur) |
 
 ## Sound packs
 
@@ -85,7 +114,7 @@ vox pack play error -p peon_fr     # Jouer depuis un pack specifique
 vox pack remove peon               # Desinstaller un pack
 ```
 
-Categories de sons : greeting, acknowledge, complete, error, permission, annoyed.
+Categories de sons : greeting, acknowledge, complete, error, permission, resource_limit, annoyed.
 
 ## Statistiques d'utilisation
 
@@ -135,6 +164,15 @@ vox init -m all         # Les trois modes
 
 L'init est idempotent : relancer `vox init` ne duplique pas les configurations.
 
+### Comparaison des modes d'init
+
+| Mode | Ce qu'il fait | Quand l'utiliser |
+|------|--------------|-----------------|
+| `mcp` (defaut) | Configure le serveur MCP dans les fichiers de config de 14 outils IA | L'assistant appelle `vox_speak`, `vox_hear`, etc. nativement via le protocole MCP. Meilleure integration. |
+| `cli` | Cree `CLAUDE.md` + hook `Stop` dans `.claude/settings.json` | L'assistant appelle `vox` via bash. Plus simple mais moins de fonctionnalites (pas de STT, stats, etc.). |
+| `skill` | Cree `/speak` dans `~/.claude/commands/speak.md` | L'utilisateur invoque manuellement `/speak <texte>` dans Claude Code. |
+| `all` | Les trois modes combines | Maximum de compatibilite. |
+
 ### Mode CLI
 
 Cree un `CLAUDE.md` dans le projet courant avec des instructions pour que l'assistant appelle `vox` apres les taches significatives. Ajoute un hook `Stop` dans `.claude/settings.json` qui dit "Termine" a la fin de chaque reponse.
@@ -142,6 +180,37 @@ Cree un `CLAUDE.md` dans le projet courant avec des instructions pour que l'assi
 ### Mode Skill
 
 Cree une commande `/speak` dans `~/.claude/commands/speak.md` pour invoquer vox via slash command.
+
+## Serveur MCP (`vox serve`)
+
+Lance le serveur MCP sur stdio (JSON-RPC 2.0, protocole `2024-11-05`). C'est cette commande que les outils IA appellent apres `vox init`.
+
+```bash
+vox serve    # Lance le serveur (bloque, lit stdin, ecrit stdout)
+```
+
+Le serveur est normalement lance automatiquement par l'outil IA. Il n'est pas necessaire de le lancer manuellement, sauf pour du debug.
+
+### Reference complete des 14 outils MCP
+
+| Outil | Description | Parametres |
+|-------|-------------|------------|
+| `vox_speak` | Synthetise et joue du texte | **`text`** (requis, string) : texte a prononcer. `voice` (string) : nom de voix ou clone. `lang` (string) : code langue. `backend` (string) : kokoro/say/qwen/qwen-native. `style` (string) : calm/energetic/warm/authoritative/cheerful/serious. `gender` (string) : feminine/masculine. `rate` (integer) : debit mots/min (say uniquement). |
+| `vox_list_voices` | Liste les voix d'un backend | `backend` (string) : kokoro/say/qwen/qwen-native. Defaut : backend par defaut de la plateforme. |
+| `vox_clone_list` | Liste les voice clones | Aucun parametre. |
+| `vox_clone_add` | Ajoute un voice clone | **`name`** (requis, string) : nom du clone. **`audio`** (requis, string) : chemin du fichier audio de reference. `text` (string) : transcription de l'audio (ameliore la qualite). |
+| `vox_clone_remove` | Supprime un voice clone | **`name`** (requis, string) : nom du clone a supprimer. |
+| `vox_config_show` | Affiche les preferences | Aucun parametre. Retourne : backend, voice, lang, rate, gender, style, model, pack. |
+| `vox_config_set` | Modifie une preference | **`key`** (requis, string) : cle (backend/voice/lang/rate/gender/style/model). **`value`** (requis, string) : valeur. |
+| `vox_stats` | Statistiques d'utilisation | Aucun parametre. Retourne : total requests, total chars, 10 dernieres entrees. |
+| `vox_pack_list` | Liste les sound packs | Aucun parametre. Retourne : packs installes (avec actif marque) + disponibles. |
+| `vox_pack_install` | Installe un sound pack | **`name`** (requis, string) : nom du pack (peon, peon_fr, peon_pl, peasant, peasant_fr, sc_kerrigan, sc_battlecruiser, ra2_soviet_engineer). |
+| `vox_pack_set` | Active un sound pack | **`name`** (requis, string) : nom du pack installe. |
+| `vox_pack_play` | Joue un son d'un pack | `category` (string, defaut: "greeting") : greeting/acknowledge/complete/error/permission/resource_limit/annoyed. `pack` (string) : nom du pack (utilise le pack actif si omis). |
+| `vox_pack_remove` | Supprime un sound pack | **`name`** (requis, string) : nom du pack. Si le pack supprime etait actif, le pack actif est remis a vide. |
+| `vox_hear` | Enregistre et transcrit (STT) | `lang` (string, defaut: "fr") : code langue. `timeout` (integer, defaut: 30) : duree max en secondes. `silence` (number, defaut: 2.0) : secondes de silence avant arret. macOS uniquement. |
+
+Les parametres en **gras** sont requis. Le serveur renvoie `isError: true` si un parametre requis est manquant ou invalide.
 
 ## Speech-to-Text (macOS)
 
