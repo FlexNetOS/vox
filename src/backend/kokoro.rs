@@ -1,13 +1,13 @@
-//! Kokoro TTS backend — pure Rust ONNX inference via Python kokoro-onnx bridge.
+//! Kokoro TTS backend — ONNX model via Python kokoro-onnx bridge.
 //!
-//! Cross-platform, no GPU required. Model files (~80MB) downloaded separately.
+//! 82M param model, cross-platform. Model files (~80MB) downloaded separately.
+//! Note: uses Python subprocess for now. Pure Rust port tracked as future work.
 
 use std::process::Command;
 
 use anyhow::{Context, Result};
 
 use super::{SpeakOptions, TtsBackend};
-use crate::audio;
 use crate::config;
 
 const MODEL_FILE: &str = "kokoro-v1.0.onnx";
@@ -122,7 +122,22 @@ sf.write("{out}", samples, sr)
             anyhow::bail!("Kokoro TTS failed: {stderr}");
         }
 
-        audio::play_wav_blocking(&wav_path)?;
+        // Use afplay on macOS (more reliable), rodio on other platforms
+        #[cfg(target_os = "macos")]
+        {
+            let status = Command::new("afplay")
+                .arg(&wav_path)
+                .status()
+                .context("failed to play audio")?;
+            if !status.success() {
+                anyhow::bail!("afplay failed");
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            crate::audio::play_wav_blocking(&wav_path)?;
+        }
+
         let _ = std::fs::remove_file(&wav_path);
         Ok(())
     }
