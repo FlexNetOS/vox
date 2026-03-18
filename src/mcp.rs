@@ -196,7 +196,7 @@ fn tool_definitions() -> Value {
                     },
                     "backend": {
                         "type": "string",
-                        "description": "TTS backend: kokoro (default), say (macOS), qwen (macOS, neural), qwen-native (cross-platform)"
+                        "description": "TTS backend: kokoro, say (macOS), qwen (macOS), qwen-native, voxtream (fastest, zero-shot)"
                     },
                     "style": {
                         "type": "string",
@@ -222,7 +222,7 @@ fn tool_definitions() -> Value {
                 "properties": {
                     "backend": {
                         "type": "string",
-                        "description": "TTS backend: kokoro, say, qwen, qwen-native (defaults to kokoro)"
+                        "description": "TTS backend: kokoro, say, qwen, qwen-native, voxtream"
                     }
                 }
             }

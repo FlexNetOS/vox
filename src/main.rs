@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use vox::backend::{self, SpeakOptions};
 use vox::config::DEFAULT_BACKEND;
-use vox::{clone, db, init, input, mcp, pack};
+use vox::{clone, db, init, input, mcp, pack, tui};
 
 #[derive(Parser)]
 #[command(name = "vox", version, about = "Voice Command — read text aloud")]
@@ -63,6 +63,8 @@ enum Commands {
     },
     /// Show usage statistics
     Stats,
+    /// Interactive voice configuration (TUI for humans)
+    Setup,
     /// Set up AI assistant integration (Claude Code + Claude Desktop)
     Init {
         /// Integration mode: mcp, cli, skill, or all (default: mcp)
@@ -198,6 +200,7 @@ fn main() -> Result<()> {
         Some(Commands::Clone { action }) => handle_clone(action),
         Some(Commands::Config { action }) => handle_config(action),
         Some(Commands::Stats) => handle_stats(),
+        Some(Commands::Setup) => tui::run(),
         Some(Commands::Init { mode }) => handle_init(mode),
         Some(Commands::Serve) => mcp::run_server(),
         Some(Commands::Pack { action }) => handle_pack(action),
@@ -253,8 +256,8 @@ fn handle_speak(cli: Cli) -> Result<()> {
     {
         ref_audio = Some(vc.ref_audio);
         ref_text = vc.ref_text;
-        // Auto-switch to a qwen backend for voice clones (unless already on one)
-        if effective_backend != "qwen" && effective_backend != "qwen-native" {
+        // Auto-switch to a clone-capable backend (unless already on one)
+        if !["qwen", "qwen-native", "voxtream"].contains(&effective_backend.as_str()) {
             effective_backend = voice_clone_backend().to_string();
         }
         voice = None; // don't pass clone name as --voice
