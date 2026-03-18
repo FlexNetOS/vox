@@ -113,6 +113,8 @@ impl TtsBackend for VoxtreamBackend {
             );
         }
 
+        eprintln!("Loading VoXtream2 model (first run may download ~500MB)...");
+
         let mut cmd = Command::new(&bin);
         cmd.arg("-t").arg(text);
         cmd.arg("-o").arg(&wav_str);
