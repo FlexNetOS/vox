@@ -27,19 +27,25 @@ Cross-platform TTS CLI with five backends and MCP server for AI assistants.
 
 ### Benchmark — single sentence (~50 chars)
 
-Real-world measurements. Cold start = first run (includes model loading). Warm = model cached on disk.
+All times measured end-to-end (model loading + inference + audio playback). Cold = first CLI call.
 
-| Backend | M2 Pro (CPU) | RTX 4070 Ti SUPER (CUDA) | Voice cloning | Quality |
+| Backend | M2 Pro (CPU) | RTX 4070 Ti SUPER | Voice cloning | Quality |
 |---------|-------------:|-------------------------:|:---:|---------|
 | **`say`** | **3s** | macOS only | No | System voices |
 | **`kokoro`** | **10s** | ~10s | No | Good |
-| **`voxtream`** | **68s** / 8s warm | **44s** / **22s** warm | Yes (zero-shot) | Excellent |
-| **`qwen-native`** | **11m33s** / 3s warm | ~30s / ~2s warm | Yes | Excellent |
-| **`qwen`** | ~15s / 2s warm | macOS only | Yes | Excellent |
+| **`voxtream`** (VoXtream2, 0.5B) | **68s** / 40s warm | **23s** / **19s** warm | Yes (zero-shot) | Excellent |
+| **`qwen-native`** (Qwen3-TTS, 0.6B) | **11m33s** / 3s warm | **48s** (CPU) | Yes | Excellent |
+| **`qwen`** (MLX-Audio) | ~15s / 2s warm | macOS only | Yes | Excellent |
 
-> `voxtream` cold start includes model download (~500MB) on first run. Subsequent "warm" runs reuse cached model.
-> `qwen-native` benefits massively from `--features metal` (macOS) or `--features cuda` (Linux).
-> For lowest latency: `say` (macOS) or `kokoro` (all platforms). For best quality + cloning: `voxtream` on GPU.
+**With daemon** (`vox daemon start` — keeps model server warm):
+
+| Backend | M2 Pro (CPU) | Notes |
+|---------|-------------:|-------|
+| **`voxtream`** | **32s** | Inference CPU-bound (~25s). On CUDA: paper reports 74ms first-packet |
+| **`qwen-native`** | **~3s** | Model stays in RAM via global Mutex |
+
+> All CUDA benchmarks measured on RTX 4070 Ti SUPER (16GB). qwen-native CUDA not yet supported (requires cudarc update for CUDA 13.2).
+> For lowest latency: `say` (macOS) or `kokoro`. For best quality + cloning: `voxtream` on CUDA with daemon.
 
 ## Install
 

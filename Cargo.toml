@@ -19,7 +19,7 @@ anyhow = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 dirs = "6"
 reqwest = { version = "0.12", features = ["blocking", "json", "stream"] }
-tokio = { version = "1", features = ["rt", "net", "io-util"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "io-util", "macros", "signal", "time"] }
 futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use vox::backend::{self, SpeakOptions};
 use vox::config::DEFAULT_BACKEND;
-use vox::{clone, db, init, input, mcp, pack, tui};
+use vox::{clone, daemon, db, init, input, mcp, pack, tui};
 
 #[derive(Parser)]
 #[command(name = "vox", version, about = "Voice Command — read text aloud")]
@@ -65,6 +65,11 @@ enum Commands {
     Stats,
     /// Interactive voice configuration (TUI for humans)
     Setup,
+    /// Manage the TTS daemon (keeps models warm for fast inference)
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonAction,
+    },
     /// Set up AI assistant integration (Claude Code + Claude Desktop)
     Init {
         /// Integration mode: mcp, cli, skill, or all (default: mcp)
@@ -193,6 +198,26 @@ enum ConfigAction {
     Reset,
 }
 
+#[derive(Subcommand)]
+enum DaemonAction {
+    /// Start the daemon (background process)
+    Start {
+        /// Idle timeout in seconds before auto-shutdown (0 = no timeout)
+        #[arg(long, default_value = "300")]
+        idle_timeout: u64,
+    },
+    /// Stop the daemon
+    Stop,
+    /// Show daemon status
+    Status,
+    /// Internal: run daemon in foreground (used by `start`)
+    #[command(name = "_run", hide = true)]
+    Run {
+        #[arg(long, default_value = "300")]
+        idle_timeout: u64,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -201,6 +226,7 @@ fn main() -> Result<()> {
         Some(Commands::Config { action }) => handle_config(action),
         Some(Commands::Stats) => handle_stats(),
         Some(Commands::Setup) => tui::run(),
+        Some(Commands::Daemon { action }) => handle_daemon(action),
         Some(Commands::Init { mode }) => handle_init(mode),
         Some(Commands::Serve) => mcp::run_server(),
         Some(Commands::Pack { action }) => handle_pack(action),
@@ -287,7 +313,18 @@ fn handle_speak(cli: Cli) -> Result<()> {
     };
 
     let start = Instant::now();
-    backend.speak(&text, &opts)?;
+
+    // Try daemon for heavy backends (warm model = fast inference)
+    let is_heavy = matches!(
+        effective_backend.as_str(),
+        "voxtream" | "qwen" | "qwen-native" | "kokoro"
+    );
+    if is_heavy && daemon::is_running() {
+        daemon::speak_via_daemon(&text, &effective_backend, &opts)?;
+    } else {
+        backend.speak(&text, &opts)?;
+    }
+
     let duration_ms = start.elapsed().as_millis() as u64;
 
     // Log usage
@@ -859,4 +896,16 @@ fn handle_stats() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn handle_daemon(action: DaemonAction) -> Result<()> {
+    match action {
+        DaemonAction::Start { idle_timeout } => daemon::handle_start(idle_timeout),
+        DaemonAction::Stop => daemon::handle_stop(),
+        DaemonAction::Status => daemon::handle_status(),
+        DaemonAction::Run { idle_timeout } => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(daemon::run(idle_timeout))
+        }
+    }
 }

@@ -10,6 +10,7 @@ pub mod backend;
 pub mod chat;
 pub mod clone;
 pub mod config;
+pub mod daemon;
 pub mod db;
 pub mod init;
 pub mod input;
