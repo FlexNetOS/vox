@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 rodio = "0.20"
+hound = "3"
 qwen3-tts = { git = "https://github.com/TrevorS/qwen3-tts-rs", features = ["hub"], default-features = false }
 ratatui = "0.29"
 crossterm = "0.28"

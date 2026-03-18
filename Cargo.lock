@@ -4070,6 +4070,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "futures-util",
+ "hound",
  "predicates",
  "qwen3-tts",
  "ratatui",
