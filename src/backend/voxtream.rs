@@ -16,7 +16,7 @@ use crate::config;
 /// Default prompt audio for voxtream when no voice clone is provided.
 /// Generated on first use via macOS `say` or a bundled fallback.
 /// Stored in /tmp to avoid paths with spaces (torchaudio PosixPath bug).
-fn default_prompt_audio() -> Result<PathBuf> {
+pub fn default_prompt_audio() -> Result<PathBuf> {
     let path = PathBuf::from("/tmp/vox_voxtream_default_prompt.wav");
     if path.exists() {
         return Ok(path);
@@ -53,7 +53,7 @@ fn default_prompt_audio() -> Result<PathBuf> {
 pub struct VoxtreamBackend;
 
 /// Find the voxtream binary — check PATH first, then common venv locations.
-fn find_voxtream() -> Option<PathBuf> {
+pub fn find_voxtream() -> Option<PathBuf> {
     // Check PATH
     if let Ok(status) = Command::new("voxtream")
         .arg("--help")
