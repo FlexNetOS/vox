@@ -1,7 +1,7 @@
 //! TTS backend abstraction layer.
 //!
 //! Each backend implements `TtsBackend` and is selected at runtime via `get_backend()`.
-//! Platform-gated: `say` and `qwen` are macOS-only; `kokoro` and `qwen-native` are cross-platform.
+//! Platform-gated: `say` and `qwen` are macOS-only; `kokoro`, `qwen-native`, and `voxtream` are cross-platform.
 
 pub mod kokoro;
 #[cfg(target_os = "macos")]
@@ -9,6 +9,7 @@ pub mod qwen;
 pub mod qwen_native;
 #[cfg(target_os = "macos")]
 pub mod say;
+pub mod voxtream;
 
 use anyhow::Result;
 
@@ -39,6 +40,7 @@ pub fn get_backend(name: &str) -> Result<Box<dyn TtsBackend>> {
         #[cfg(target_os = "macos")]
         "qwen" => Ok(Box::new(qwen::QwenBackend)),
         "qwen-native" => Ok(Box::new(qwen_native::QwenNativeBackend)),
+        "voxtream" => Ok(Box::new(voxtream::VoxtreamBackend)),
         #[cfg(not(target_os = "macos"))]
         "say" | "qwen" => {
             anyhow::bail!("Backend '{name}' is only available on macOS. Use 'qwen-native' instead.")

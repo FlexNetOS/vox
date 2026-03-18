@@ -17,3 +17,4 @@ pub mod mcp;
 pub mod pack;
 #[cfg(target_os = "macos")]
 pub mod stt;
+pub mod tui;

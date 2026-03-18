@@ -1,20 +1,45 @@
 # vox
 
-Cross-platform TTS CLI with four backends and MCP server for AI assistants.
+Cross-platform TTS CLI with five backends and MCP server for AI assistants.
 
 ```
-                           vox
-                            |
-          +--------+--------+--------+--------+
-          |        |                 |        |
-        say      qwen          qwen-native  kokoro
-     (macOS)  (MLX/Python)    (pure Rust)  (pure Rust)
-      native  Apple Silicon   CPU/Metal    CPU/GPU
-                               /CUDA
-                        |
-                      rodio
-                  (audio playback)
+                              vox
+                               |
+       +--------+--------+----+----+--------+-----------+
+       |        |        |         |        |           |
+     say      qwen    qwen-native kokoro  voxtream    (TUI)
+   (macOS)  (MLX/Py)  (Rust/candle) (ONNX) (zero-shot) vox setup
+   native   Apple Si.  CPU/Metal  CPU/GPU  CUDA/MPS
+                        /CUDA
+                          |
+                        rodio (audio playback)
 ```
+
+## Backends
+
+| Backend | Engine | Voice cloning | Latency (cold) | Latency (warm) | GPU | Platform |
+|---------|--------|:---:|---:|---:|:---:|----------|
+| `say` | macOS native | No | **3s** | **3s** | No | macOS |
+| `kokoro` | ONNX via Python | No | **10s** | **10s** | No | All |
+| `qwen-native` | Candle (Rust) | Yes | **11m33s** | ~3s | Metal/CUDA | All |
+| `voxtream` | PyTorch 0.5B | Yes | **68s** | ~8s | CUDA/MPS | All |
+| `qwen` | MLX-Audio (Python) | Yes | ~15s | ~2s | Apple Neural | macOS |
+
+### Benchmark — single sentence (~50 chars)
+
+Real-world measurements. Cold start = first run (includes model loading). Warm = model cached on disk.
+
+| Backend | M2 Pro (CPU) | RTX 4070 Ti SUPER (CUDA) | Voice cloning | Quality |
+|---------|-------------:|-------------------------:|:---:|---------|
+| **`say`** | **3s** | macOS only | No | System voices |
+| **`kokoro`** | **10s** | ~10s | No | Good |
+| **`voxtream`** | **68s** / 8s warm | **44s** / **22s** warm | Yes (zero-shot) | Excellent |
+| **`qwen-native`** | **11m33s** / 3s warm | ~30s / ~2s warm | Yes | Excellent |
+| **`qwen`** | ~15s / 2s warm | macOS only | Yes | Excellent |
+
+> `voxtream` cold start includes model download (~500MB) on first run. Subsequent "warm" runs reuse cached model.
+> `qwen-native` benefits massively from `--features metal` (macOS) or `--features cuda` (Linux).
+> For lowest latency: `say` (macOS) or `kokoro` (all platforms). For best quality + cloning: `voxtream` on GPU.
 
 ## Install
 
@@ -30,6 +55,17 @@ cargo install --path . --features metal  # macOS Apple Silicon
 cargo install --path . --features cuda   # Linux NVIDIA
 ```
 
+### VoXtream backend (optional)
+
+```bash
+brew install espeak-ng                              # macOS (or apt install espeak-ng on Linux)
+uv venv ~/.local/venvs/voxtream --python 3.11
+uv pip install --python ~/.local/venvs/voxtream/bin/python "voxtream>=0.2"
+# Copy config files
+git clone --depth 1 https://github.com/herimor/voxtream.git /tmp/voxtream-repo
+cp /tmp/voxtream-repo/configs/*.json "$(vox config show 2>/dev/null | head -1 | grep -v backend || echo ~/.config/vox)/voxtream/"
+```
+
 | Platform | Default backend | GPU |
 |----------|----------------|-----|
 | macOS | `say` | `--features metal` |
@@ -41,10 +77,34 @@ Linux requires `sudo apt install libasound2-dev`.
 
 ```bash
 vox "Hello, world."                     # Speak with default backend
-vox -b kokoro -l fr "Bonjour"           # Specific backend + language
+vox -b voxtream "Zero-shot TTS."        # VoXtream2 (fastest neural)
+vox -b kokoro -l fr "Bonjour"           # Kokoro with language
 echo "Piped text" | vox                 # Read from stdin
 vox --list-voices                       # List available voices
+vox setup                               # Interactive TUI configuration
 ```
+
+## Interactive setup (TUI)
+
+For humans — choose backend, voice, language, and style interactively:
+
+```bash
+vox setup
+```
+
+```
+┌ Backend ──┐┌ Voice ─────┐┌ Lang ┐┌ Style ────┐┌ Config ──────┐
+│> say      ││> Samantha  ││> en  ││> (default)││ Backend: say │
+│  kokoro   ││  Thomas    ││  fr  ││  calm     ││ Voice: ...   │
+│  qwen-nat ││  Amelie    ││  es  ││  warm     ││ Lang:  en    │
+│  voxtream ││           ││  de  ││  cheerful ││              │
+│  qwen     ││           ││  ja  ││          ││ [T]est [S]ave│
+└───────────┘└────────────┘└──────┘└──────────┘└──────────────┘
+```
+
+Navigate with arrow keys / hjkl, Tab to switch panel, T to test, S to save, Q to quit.
+
+AI agents use CLI flags instead: `vox -b voxtream -l fr "text"`
 
 ## AI assistant integration
 
@@ -63,15 +123,6 @@ Running `vox init` again is safe — it skips files that are already configured.
 
 **CLI mode is recommended** for AI coding agents. Benchmarks show CLI tools are [10-32x cheaper and 100% reliable vs 72% for MCP](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) due to MCP's TCP timeout overhead and JSON schema cost per call.
 
-With CLI mode, the agent calls vox directly via Bash — no server, no protocol overhead:
-
-```bash
-# Agent just runs this after completing a task
-vox "Fix applied and tests passing."
-```
-
-MCP mode remains useful for tools that don't have shell access (Cursor, VS Code extensions) or when you need structured tool discovery.
-
 | Mode | Reliability | Token cost | Best for |
 |------|------------|------------|----------|
 | **CLI** (`vox init -m cli`) | 100% | Low (Bash call) | Claude Code, Codex, terminal agents |
@@ -87,11 +138,13 @@ vox clone list
 vox clone remove patrick
 ```
 
+Works with `qwen`, `qwen-native`, and `voxtream` backends. VoXtream2 uses zero-shot cloning (3-10s audio prompt, no training needed).
+
 ## Preferences
 
 ```bash
 vox config show
-vox config set backend kokoro
+vox config set backend voxtream
 vox config set lang fr
 vox config set voice Chelsie
 vox config set gender feminine
@@ -118,13 +171,14 @@ vox hear -l fr                     # Speech-to-text only
 
 ## Data
 
-All state is stored locally in `~/.config/vox/`:
+All state is stored locally — no data sent to external servers (except `vox chat` which uses Claude API).
 
 ```
-~/.config/vox/
-  vox.db          # SQLite: preferences, voice clones, usage logs
-  clones/         # Audio files for voice clones
-  packs/          # Installed sound packs
+~/.config/vox/           # or ~/Library/Application Support/vox/ on macOS
+  vox.db                 # SQLite: preferences, voice clones, usage logs
+  clones/                # Audio files for voice clones
+  packs/                 # Installed sound packs
+  voxtream/              # VoXtream2 config files
 ```
 
 | Env var | Description |
@@ -136,9 +190,9 @@ All state is stored locally in `~/.config/vox/`:
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/ARCHITECTURE.md) | Architecture technique, backends, DB schema, protocole MCP, securite |
-| [Features](docs/FEATURES.md) | Documentation fonctionnelle de toutes les commandes et fonctionnalites |
-| [Guide](docs/GUIDE.md) | Guide utilisateur, installation, demarrage rapide, depannage |
+| [Architecture](docs/ARCHITECTURE.md) | Technical architecture, backends, DB schema, MCP protocol, security |
+| [Features](docs/FEATURES.md) | All commands and features documented |
+| [Guide](docs/GUIDE.md) | Installation, quick start, troubleshooting |
 
 ## License
 
