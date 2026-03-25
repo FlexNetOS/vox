@@ -202,4 +202,4 @@ All state is stored locally — no data sent to external servers (except `vox ch
 
 ## License
 
-[Source-Available](LICENSE) — Free for individuals and teams up to 20 people. Enterprise license required for larger organizations. Contact: license@rtk.ai
+[Apache-2.0](LICENSE)
