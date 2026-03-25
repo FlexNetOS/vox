@@ -164,7 +164,7 @@ jobs:
             desc "Cross-platform TTS CLI — local voice synthesis with three backends"
             homepage "https://github.com/rtk-ai/vox"
             version "VERSION_PLACEHOLDER"
-            license "MIT"
+            license "Apache-2.0"
 
             on_macos do
               on_intel do
