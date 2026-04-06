@@ -1,6 +1,29 @@
-# vox
+<p align="center">
+  <img src="assets/banner.png" alt="vox — Voice Command" width="600">
+</p>
 
-Cross-platform TTS CLI with five backends and MCP server for AI assistants.
+<h1 align="center">vox</h1>
+
+<p align="center">
+  Cross-platform TTS CLI with five backends and MCP server for AI assistants.
+</p>
+
+<p align="center">
+  <a href="https://github.com/rtk-ai/vox/actions"><img src="https://github.com/rtk-ai/vox/workflows/CI/badge.svg" alt="CI"></a>
+  <a href="https://github.com/rtk-ai/vox/releases"><img src="https://img.shields.io/github/v/release/rtk-ai/vox?color=purple" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Source--Available-blue.svg" alt="License"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> &bull;
+  <a href="README_fr.md">Fran&ccedil;ais</a> &bull;
+  <a href="README_zh.md">中文</a> &bull;
+  <a href="README_ja.md">日本語</a> &bull;
+  <a href="README_ko.md">한국어</a> &bull;
+  <a href="README_es.md">Espa&ntilde;ol</a>
+</p>
+
+---
 
 ```
                               vox
