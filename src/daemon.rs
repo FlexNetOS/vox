@@ -356,7 +356,7 @@ async fn handle_connection(stream: tokio::net::TcpStream, state: Arc<DaemonState
 
     let mut request_line = String::new();
     buf_reader.read_line(&mut request_line).await?;
-    let parts: Vec<&str> = request_line.trim().split_whitespace().collect();
+    let parts: Vec<&str> = request_line.split_whitespace().collect();
     if parts.len() < 2 {
         return Ok(());
     }

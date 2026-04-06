@@ -73,13 +73,10 @@ pub fn find_voxtream() -> Option<PathBuf> {
         dirs::home_dir().map(|h| h.join("venvs/voxtream/bin/voxtream")),
     ];
 
-    for candidate in candidates.into_iter().flatten() {
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    None
+    candidates
+        .into_iter()
+        .flatten()
+        .find(|candidate| candidate.exists())
 }
 
 impl TtsBackend for VoxtreamBackend {

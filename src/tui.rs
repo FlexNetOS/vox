@@ -295,7 +295,7 @@ fn draw(frame: &mut Frame, app: &App) {
     .split(outer[1]);
 
     // Backend list
-    let backend_items: Vec<&str> = app.backends.iter().copied().collect();
+    let backend_items: Vec<&str> = app.backends.to_vec();
     frame.render_widget(
         render_list(
             "Backend",
