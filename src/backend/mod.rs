@@ -4,6 +4,7 @@
 //! Platform-gated: `say` and `qwen` are macOS-only; `kokoro`, `qwen-native`, and `voxtream` are cross-platform.
 
 pub mod kokoro;
+pub mod piper;
 #[cfg(target_os = "macos")]
 pub mod qwen;
 pub mod qwen_native;
@@ -41,6 +42,7 @@ pub fn get_backend(name: &str) -> Result<Box<dyn TtsBackend>> {
         "qwen" => Ok(Box::new(qwen::QwenBackend)),
         "qwen-native" => Ok(Box::new(qwen_native::QwenNativeBackend)),
         "voxtream" => Ok(Box::new(voxtream::VoxtreamBackend)),
+        "piper" => Ok(Box::new(piper::PiperBackend)),
         #[cfg(not(target_os = "macos"))]
         "say" | "qwen" => {
             anyhow::bail!("Backend '{name}' is only available on macOS. Use 'qwen-native' instead.")
