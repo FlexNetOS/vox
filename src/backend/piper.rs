@@ -145,6 +145,13 @@ impl TtsBackend for PiperBackend {
             }
         }
 
+        // Enable CUDA if available (NVIDIA GPU)
+        if std::path::Path::new("/usr/bin/nvidia-smi").exists()
+            || std::env::var("CUDA_VISIBLE_DEVICES").is_ok()
+        {
+            cmd.arg("--cuda");
+        }
+
         let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
