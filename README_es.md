@@ -79,4 +79,4 @@ vox daemon stop         # Detener
 
 ## Licencia
 
-[Source-Available](LICENSE) — Gratuito para individuos y equipos de hasta 20 personas. Licencia empresarial requerida para organizaciones mas grandes. Contacto: license@rtk.ai
+[Apache-2.0](LICENSE)

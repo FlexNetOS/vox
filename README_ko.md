@@ -79,4 +79,4 @@ vox daemon stop         # 중지
 
 ## 라이선스
 
-[Source-Available](LICENSE) — 개인 및 20인 이하 팀 무료. 대규모 조직은 엔터프라이즈 라이선스 필요. 문의: license@rtk.ai
+[Apache-2.0](LICENSE)

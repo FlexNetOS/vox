@@ -87,4 +87,4 @@ vox hear -l fr          # Transcription seule
 
 ## Licence
 
-[Source-Available](LICENSE) — Gratuit pour les individus et equipes jusqu'a 20 personnes. Licence entreprise requise au-dela. Contact : license@rtk.ai
+[Apache-2.0](LICENSE)
