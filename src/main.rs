@@ -65,6 +65,8 @@ enum Commands {
     Stats,
     /// Interactive voice configuration (TUI for humans)
     Setup,
+    /// Auto-detect best backend for your hardware and set as default
+    Bench,
     /// Manage the TTS daemon (keeps models warm for fast inference)
     Daemon {
         #[command(subcommand)]
@@ -226,6 +228,7 @@ fn main() -> Result<()> {
         Some(Commands::Config { action }) => handle_config(action),
         Some(Commands::Stats) => handle_stats(),
         Some(Commands::Setup) => tui::run(),
+        Some(Commands::Bench) => handle_bench(),
         Some(Commands::Daemon { action }) => handle_daemon(action),
         Some(Commands::Init { mode }) => handle_init(mode),
         Some(Commands::Serve) => mcp::run_server(),
@@ -908,4 +911,114 @@ fn handle_daemon(action: DaemonAction) -> Result<()> {
             rt.block_on(daemon::run(idle_timeout))
         }
     }
+}
+
+fn handle_bench() -> Result<()> {
+    println!("vox bench — auto-detecting best backend for your hardware\n");
+
+    // Detect platform
+    let os = if cfg!(target_os = "macos") {
+        "macOS"
+    } else if cfg!(target_os = "windows") {
+        "Windows"
+    } else {
+        "Linux"
+    };
+
+    // Detect GPU
+    let has_nvidia = std::path::Path::new("/usr/bin/nvidia-smi").exists()
+        || std::env::var("CUDA_VISIBLE_DEVICES").is_ok();
+    let has_metal = cfg!(target_os = "macos");
+
+    let gpu = if has_nvidia {
+        "NVIDIA CUDA"
+    } else if has_metal {
+        "Apple Metal"
+    } else {
+        "None (CPU only)"
+    };
+
+    println!("  Platform:  {os}");
+    println!("  GPU:       {gpu}");
+    println!();
+
+    // List backends to test
+    let mut candidates: Vec<&str> = vec!["piper"];
+    #[cfg(target_os = "macos")]
+    candidates.push("say");
+    // Only test backends that are available
+    if backend::get_backend("qwen-native")
+        .map(|b| b.is_available())
+        .unwrap_or(false)
+    {
+        candidates.push("qwen-native");
+    }
+    if backend::get_backend("voxtream")
+        .map(|b| b.is_available())
+        .unwrap_or(false)
+    {
+        candidates.push("voxtream");
+    }
+    if backend::get_backend("kokoro")
+        .map(|b| b.is_available())
+        .unwrap_or(false)
+    {
+        candidates.push("kokoro");
+    }
+
+    let test_text = "Hello, this is a quick benchmark test.";
+    let mut results: Vec<(&str, u128)> = Vec::new();
+
+    println!("  Testing {} backends...\n", candidates.len());
+
+    for name in &candidates {
+        print!("  {:<14} ", name);
+        match backend::get_backend(name) {
+            Ok(b) => {
+                let opts = SpeakOptions::default();
+                let start = Instant::now();
+                // Suppress audio — write to /dev/null by setting a very short text
+                match b.speak(test_text, &opts) {
+                    Ok(()) => {
+                        let ms = start.elapsed().as_millis();
+                        results.push((name, ms));
+                        let bar_len = (ms / 500).min(20) as usize;
+                        let bar: String = "\u{2588}".repeat(bar_len);
+                        println!("{ms:>6}ms  {bar}");
+                    }
+                    Err(e) => {
+                        println!("FAILED  ({e})");
+                    }
+                }
+            }
+            Err(e) => {
+                println!("SKIP    ({e})");
+            }
+        }
+    }
+
+    if results.is_empty() {
+        println!("\n  No backends available!");
+        return Ok(());
+    }
+
+    // Sort by latency
+    results.sort_by_key(|r| r.1);
+
+    let best = results[0].0;
+    let best_ms = results[0].1;
+
+    println!(
+        "\n  \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+    );
+    println!("  Best: {best} ({best_ms}ms)");
+
+    // Set as default
+    let conn = db::open()?;
+    db::set_preference(&conn, "backend", best)?;
+    println!("  Saved as default backend.\n");
+
+    println!("  Run `vox bench` again after installing new backends.");
+
+    Ok(())
 }
