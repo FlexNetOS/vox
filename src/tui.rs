@@ -46,14 +46,26 @@ impl App {
         let prefs = db::get_preferences(&conn)?;
 
         #[cfg(target_os = "macos")]
-        let backends = vec!["say", "kokoro", "qwen", "qwen-native", "voxtream"];
+        let backends = vec![
+            "say          \u{2605}\u{2605}\u{2605} quality  \u{26a1} 3s",
+            "piper        \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust]",
+            "qwen-native  \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 12s  [Rust+Metal]",
+            "voxtream     \u{2605}\u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 170ms [CUDA]",
+            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} 10s  [Python]",
+            "qwen         \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 2s   [Python+MLX]",
+        ];
         #[cfg(not(target_os = "macos"))]
-        let backends = vec!["kokoro", "qwen-native", "voxtream"];
+        let backends = vec![
+            "piper        \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust]",
+            "qwen-native  \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 3s   [Rust+CUDA]",
+            "voxtream     \u{2605}\u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 170ms [CUDA]",
+            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} 10s  [Python]",
+        ];
 
         let current_backend = prefs.backend.as_deref().unwrap_or(config::DEFAULT_BACKEND);
         let backend_idx = backends
             .iter()
-            .position(|b| *b == current_backend)
+            .position(|b| b.split_whitespace().next() == Some(current_backend))
             .unwrap_or(0);
 
         let languages: Vec<&str> = config::SUPPORTED_LANGS.to_vec();
@@ -108,7 +120,11 @@ impl App {
     }
 
     fn selected_backend(&self) -> &str {
+        // Extract backend name (first word before spaces)
         self.backends[self.backend_idx]
+            .split_whitespace()
+            .next()
+            .unwrap_or("say")
     }
 
     fn selected_lang(&self) -> &str {
@@ -149,7 +165,11 @@ impl App {
         match self.screen {
             Screen::Backend => {
                 self.backend_idx = idx;
-                self.voices = Self::load_voices(self.backends[idx]);
+                let name = self.backends[idx]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("say");
+                self.voices = Self::load_voices(name);
                 self.voice_idx = 0;
             }
             Screen::Voice => self.voice_idx = idx,

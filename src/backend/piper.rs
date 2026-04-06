@@ -1,52 +1,33 @@
-//! Piper TTS backend — fast local neural TTS via ONNX.
+//! Piper TTS backend — full Rust via piper-rs (ONNX Runtime + espeak-rs).
 //!
-//! 15-80MB models, <1s inference on CPU, 30+ languages.
-//! Requires: `pip install piper-tts` and ONNX model files.
+//! Multilingual neural TTS, <1s inference on CPU, 30+ languages.
+//! Zero Python dependency. Model files auto-downloaded from HuggingFace.
 
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::sync::Mutex;
 
 use anyhow::{Context, Result};
+use piper_rs::Piper;
 
 use super::{SpeakOptions, TtsBackend};
 use crate::config;
 
 pub struct PiperBackend;
 
-/// Find the piper binary — check PATH first, then common venv locations.
-pub fn find_piper() -> Option<PathBuf> {
-    if let Ok(status) = Command::new("piper")
-        .arg("--help")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-    {
-        if status.success() {
-            return Some(PathBuf::from("piper"));
-        }
-    }
-
-    let candidates = [
-        dirs::home_dir().map(|h| h.join(".local/venvs/piper/bin/piper")),
-        dirs::home_dir().map(|h| h.join(".venvs/piper/bin/piper")),
-    ];
-
-    candidates
-        .into_iter()
-        .flatten()
-        .find(|candidate| candidate.exists())
-}
+/// Cached model — (language, Piper instance).
+/// Reloads when language changes (different ONNX model per language).
+static MODEL: Mutex<Option<(String, Piper)>> = Mutex::new(None);
 
 fn models_dir() -> PathBuf {
     config::config_dir().join("piper")
 }
 
-/// Map lang code to piper model name and download URL.
+/// Map lang code to (model_name, download_base_url).
 fn model_for_lang(lang: &str) -> (&'static str, &'static str) {
     match lang {
         "fr" => (
-            "fr_FR-siwis-medium",
-            "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium",
+            "fr_FR-tom-medium",
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium",
         ),
         "es" => (
             "es_ES-davefx-medium",
@@ -80,6 +61,14 @@ fn model_for_lang(lang: &str) -> (&'static str, &'static str) {
             "ru_RU-irina-medium",
             "https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium",
         ),
+        "ar" => (
+            "ar_JO-kareem-medium",
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium",
+        ),
+        "nl" => (
+            "nl_NL-mls-medium",
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_NL/mls/medium",
+        ),
         _ => (
             "en_US-lessac-medium",
             "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium",
@@ -87,8 +76,8 @@ fn model_for_lang(lang: &str) -> (&'static str, &'static str) {
     }
 }
 
-/// Ensure model files exist, downloading if needed.
-fn ensure_model(lang: &str) -> Result<PathBuf> {
+/// Ensure model files exist, downloading if needed. Returns (onnx_path, json_path).
+fn ensure_model(lang: &str) -> Result<(PathBuf, PathBuf)> {
     let (model_name, base_url) = model_for_lang(lang);
     let dir = models_dir();
     std::fs::create_dir_all(&dir).ok();
@@ -103,6 +92,11 @@ fn ensure_model(lang: &str) -> Result<PathBuf> {
             .and_then(|r| r.bytes())
             .with_context(|| format!("failed to download {model_name}.onnx"))?;
         std::fs::write(&onnx_path, &bytes)?;
+        eprintln!(
+            "Downloaded {} ({:.1} MB)",
+            model_name,
+            bytes.len() as f64 / 1_000_000.0
+        );
     }
 
     if !json_path.exists() {
@@ -113,7 +107,30 @@ fn ensure_model(lang: &str) -> Result<PathBuf> {
         std::fs::write(&json_path, &bytes)?;
     }
 
-    Ok(onnx_path)
+    Ok((onnx_path, json_path))
+}
+
+fn get_or_load_model(
+    lang: &str,
+) -> Result<std::sync::MutexGuard<'static, Option<(String, Piper)>>> {
+    let mut guard = MODEL
+        .lock()
+        .map_err(|e| anyhow::anyhow!("model lock poisoned: {e}"))?;
+
+    // Reload if language changed
+    let need_reload = match &*guard {
+        Some((cached_lang, _)) => cached_lang != lang,
+        None => true,
+    };
+
+    if need_reload {
+        let (onnx_path, json_path) = ensure_model(lang)?;
+        let model = Piper::new(&onnx_path, &json_path)
+            .map_err(|e| anyhow::anyhow!("failed to load piper model: {e}"))?;
+        *guard = Some((lang.to_string(), model));
+    }
+
+    Ok(guard)
 }
 
 impl TtsBackend for PiperBackend {
@@ -122,58 +139,40 @@ impl TtsBackend for PiperBackend {
     }
 
     fn speak(&self, text: &str, opts: &SpeakOptions) -> Result<()> {
-        let bin = find_piper().context(
-            "piper not found. Install it:\n\
-             uv venv ~/.local/venvs/piper --python 3.11\n\
-             uv pip install --python ~/.local/venvs/piper/bin/python piper-tts",
-        )?;
-
         let lang = opts.lang.as_deref().unwrap_or("en");
-        let model_path = ensure_model(lang)?;
 
+        let mut guard = get_or_load_model(lang)?;
+        let (_, model) = guard.as_mut().context("model not loaded")?;
+
+        let (audio_data, sample_rate) = model
+            .create(text, false, None, None, None, None)
+            .map_err(|e| anyhow::anyhow!("Piper TTS failed: {e}"))?;
+
+        if audio_data.is_empty() {
+            return Ok(());
+        }
+
+        // Write to temp WAV
         let tmp = tempfile::NamedTempFile::new().context("failed to create temp file")?;
         let wav_path = tmp.path().with_extension("wav");
 
-        let mut cmd = Command::new(&bin);
-        cmd.arg("--model").arg(&model_path);
-        cmd.arg("-f").arg(&wav_path);
-
-        if let Some(ref voice) = opts.voice {
-            // Piper voices are speaker IDs (integers) for multi-speaker models
-            if let Ok(speaker_id) = voice.parse::<u32>() {
-                cmd.arg("-s").arg(speaker_id.to_string());
-            }
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&wav_path, spec)?;
+        for sample in &audio_data {
+            let s = (*sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+            writer.write_sample(s)?;
         }
-
-        // Enable CUDA if available (NVIDIA GPU)
-        if std::path::Path::new("/usr/bin/nvidia-smi").exists()
-            || std::env::var("CUDA_VISIBLE_DEVICES").is_ok()
-        {
-            cmd.arg("--cuda");
-        }
-
-        let mut child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .context("failed to run piper")?;
-
-        if let Some(ref mut stdin) = child.stdin {
-            use std::io::Write;
-            stdin.write_all(text.as_bytes()).ok();
-        }
-        drop(child.stdin.take());
-
-        let status = child.wait().context("piper process failed")?;
-        if !status.success() {
-            anyhow::bail!("piper exited with status {status}");
-        }
+        writer.finalize()?;
 
         // Play audio
         #[cfg(target_os = "macos")]
         {
-            Command::new("afplay")
+            std::process::Command::new("afplay")
                 .arg(&wav_path)
                 .status()
                 .context("failed to play audio")?;
@@ -199,10 +198,12 @@ impl TtsBackend for PiperBackend {
             "ja_JP-kokoro-medium".into(),
             "ko_KR-kss-medium".into(),
             "ru_RU-irina-medium".into(),
+            "ar_JO-kareem-medium".into(),
+            "nl_NL-mls-medium".into(),
         ])
     }
 
     fn is_available(&self) -> bool {
-        find_piper().is_some()
+        true
     }
 }
