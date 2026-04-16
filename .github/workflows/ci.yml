@@ -57,7 +57,6 @@ jobs:
         with:
           cuda: '12.6.3'
           method: network
-          sub-packages: '["nvcc", "cudart", "nvrtc-dev", "cublas-dev", "curand-dev", "cusparse-dev", "cusolver-dev"]'
 
       - name: Cache cargo
         uses: actions/cache@v4

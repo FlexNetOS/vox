@@ -82,7 +82,6 @@ jobs:
         with:
           cuda: '12.6.3'
           method: network
-          sub-packages: '["nvcc", "cudart", "nvrtc-dev", "cublas-dev", "curand-dev", "cusparse-dev", "cusolver-dev"]'
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
