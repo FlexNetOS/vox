@@ -5,7 +5,7 @@
 <h1 align="center">vox</h1>
 
 <p align="center">
-  Cross-platform TTS CLI with five backends and MCP server for AI assistants.
+  Cross-platform TTS CLI with six backends and MCP server for AI assistants.
 </p>
 
 <p align="center">
@@ -28,25 +28,26 @@
 ```
                               vox
                                |
-       +--------+--------+----+----+--------+-----------+
-       |        |        |         |        |           |
-     say      qwen    qwen-native kokoro  voxtream    (TUI)
-   (macOS)  (MLX/Py)  (Rust/candle) (ONNX) (zero-shot) vox setup
-   native   Apple Si.  CPU/Metal  CPU/GPU  CUDA/MPS
-                        /CUDA
-                          |
-                        rodio (audio playback)
+       +--------+--------+----+----+--------+--------+
+       |        |        |         |        |        |
+     say     piper    qwen-native kokoro  voxtream  qwen
+   (macOS)  (Rust/ort) (Rust/candle) (ONNX) (zero-shot) (MLX/Py)
+   native   CPU       CPU/Metal  opt-in  CUDA/MPS  Apple Si.
+                       /CUDA
+                         |
+                       rodio (audio playback)
 ```
 
 ## Backends
 
-| Backend | Engine | Voice cloning | Latency (cold) | Latency (warm) | GPU | Platform |
-|---------|--------|:---:|---:|---:|:---:|----------|
-| `say` | macOS native | No | **3s** | **3s** | No | macOS |
-| `kokoro` | ONNX via Python | No | **10s** | **10s** | No | All |
-| `qwen-native` | Candle (Rust) | Yes | **11m33s** | ~3s | Metal/CUDA | All |
-| `voxtream` | PyTorch 0.5B | Yes | **68s** | ~8s | CUDA/MPS | All |
-| `qwen` | MLX-Audio (Python) | Yes | ~15s | ~2s | Apple Neural | macOS |
+| Backend | Engine | Voice cloning | Latency (warm) | GPU | Platform |
+|---------|--------|:---:|---:|:---:|----------|
+| `say` | macOS native | No | **3s** | No | macOS |
+| `piper` | ONNX (Rust) | No | **<1s** | No | All |
+| `qwen-native` | Candle (Rust) | Yes | **~3s** | Metal/CUDA | All |
+| `kokoro` | ONNX (Rust, opt-in) | No | **<1s** | No | macOS only |
+| `voxtream` | PyTorch 0.5B | Yes | **~8s** | CUDA/MPS | All |
+| `qwen` | MLX-Audio (Python) | Yes | **~2s** | Apple Neural | macOS |
 
 ### Benchmark — single sentence (~50 chars)
 
@@ -55,7 +56,8 @@ All times measured end-to-end (model loading + inference + audio playback). Cold
 | Backend | M2 Pro (CPU) | RTX 4070 Ti SUPER | Voice cloning | Quality |
 |---------|-------------:|-------------------------:|:---:|---------|
 | **`say`** | **3s** | macOS only | No | System voices |
-| **`kokoro`** | **10s** | ~10s | No | Good |
+| **`piper`** | **<1s** | <1s | No | Good |
+| **`kokoro`** | **<1s** | macOS only | No | Fair (EN only) |
 | **`voxtream`** (VoXtream2, 0.5B) | **68s** / 40s warm | **23s** / **19s** warm | Yes (zero-shot) | Excellent |
 | **`qwen-native`** (Qwen3-TTS, 0.6B) | **11m33s** / 3s warm | **48s** (CPU) | Yes | Excellent |
 | **`qwen`** (MLX-Audio) | ~15s / 2s warm | macOS only | Yes | Excellent |
@@ -67,22 +69,49 @@ All times measured end-to-end (model loading + inference + audio playback). Cold
 | **`voxtream`** | **32s** | Inference CPU-bound (~25s). On CUDA: paper reports 74ms first-packet |
 | **`qwen-native`** | **~3s** | Model stays in RAM via global Mutex |
 
-> All CUDA benchmarks measured on RTX 4070 Ti SUPER (16GB). qwen-native CUDA not yet supported (requires cudarc update for CUDA 13.2).
-> For lowest latency: `say` (macOS) or `kokoro`. For best quality + cloning: `voxtream` on CUDA with daemon.
+> All CUDA benchmarks measured on RTX 4070 Ti SUPER (16GB).
+> For lowest latency: `say` (macOS) or `piper` (all platforms). For best quality + cloning: `voxtream` on CUDA with daemon.
 
 ## Install
 
+### Pre-built binaries (recommended)
+
 ```bash
-# Quick install (macOS / Linux / WSL)
+# Quick install (macOS ARM / Linux x86_64)
 curl -fsSL https://raw.githubusercontent.com/rtk-ai/vox/main/install.sh | sh
 
-# From source
-cargo install --path .
-
-# With GPU acceleration
-cargo install --path . --features metal  # macOS Apple Silicon
-cargo install --path . --features cuda   # Linux NVIDIA
+# Homebrew (macOS)
+brew install rtk-ai/tap/vox
 ```
+
+Pre-built binaries are available for each release:
+
+| Platform | Binary | GPU |
+|----------|--------|-----|
+| macOS (Apple Silicon) | `vox-aarch64-apple-darwin.tar.gz` | Metal |
+| Linux x86_64 | `vox-x86_64-unknown-linux-gnu.tar.gz` | CPU |
+| Linux x86_64 + CUDA | `vox-x86_64-unknown-linux-gnu-cuda.tar.gz` | CUDA |
+| Windows x86_64 | `vox-x86_64-pc-windows-msvc.zip` | CPU |
+| Windows x86_64 + CUDA | `vox-x86_64-pc-windows-msvc-cuda.zip` | CUDA |
+
+Download from [GitHub Releases](https://github.com/rtk-ai/vox/releases).
+
+### From source
+
+```bash
+cargo install --path .                   # CPU only
+cargo install --path . --features metal  # macOS Apple Silicon (GPU)
+cargo install --path . --features cuda   # Linux/Windows NVIDIA (GPU)
+```
+
+Linux requires `sudo apt install libasound2-dev`.
+
+### Platform defaults
+
+| Platform | Default backend | Notes |
+|----------|----------------|-------|
+| macOS | `say` | No setup needed |
+| Linux / Windows | `piper` | Models auto-download on first use |
 
 ### VoXtream backend (optional)
 
@@ -92,23 +121,18 @@ uv venv ~/.local/venvs/voxtream --python 3.11
 uv pip install --python ~/.local/venvs/voxtream/bin/python "voxtream>=0.2"
 # Copy config files
 git clone --depth 1 https://github.com/herimor/voxtream.git /tmp/voxtream-repo
-cp /tmp/voxtream-repo/configs/*.json "$(vox config show 2>/dev/null | head -1 | grep -v backend || echo ~/.config/vox)/voxtream/"
+mkdir -p "$(vox config show 2>/dev/null | grep dir | awk '{print $2}' || echo ~/.config/vox)/voxtream"
+cp /tmp/voxtream-repo/configs/*.json "$(vox config show 2>/dev/null | grep dir | awk '{print $2}' || echo ~/.config/vox)/voxtream/"
 ```
-
-| Platform | Default backend | GPU |
-|----------|----------------|-----|
-| macOS | `say` | `--features metal` |
-| Linux / WSL | `kokoro` | `--features cuda` |
-
-Linux requires `sudo apt install libasound2-dev`.
 
 ## Quick start
 
 ```bash
 vox "Hello, world."                     # Speak with default backend
-vox -b voxtream "Zero-shot TTS."        # VoXtream2 (fastest neural)
-vox -b kokoro -l fr "Bonjour"           # Kokoro with language
-vox --volume 2.0 "Louder!"             # 2x volume (range: 0.0–5.0)
+vox -b qwen-native "Neural TTS."        # Qwen3 (best quality)
+vox -b piper "Fast TTS."                # Piper (fastest)
+vox --volume 2.0 "Louder!"             # 2x volume (range: 0.0-5.0)
+vox -l fr "Bonjour"                     # French
 echo "Piped text" | vox                 # Read from stdin
 vox --list-voices                       # List available voices
 vox setup                               # Interactive TUI configuration
@@ -116,25 +140,25 @@ vox setup                               # Interactive TUI configuration
 
 ## Interactive setup (TUI)
 
-For humans — choose backend, voice, language, and style interactively:
+For humans — choose backend, voice, language, style, and volume interactively:
 
 ```bash
 vox setup
 ```
 
 ```
-┌ Backend ──┐┌ Voice ─────┐┌ Lang ┐┌ Style ────┐┌ Config ──────┐
-│> say      ││> Samantha  ││> en  ││> (default)││ Backend: say │
-│  kokoro   ││  Thomas    ││  fr  ││  calm     ││ Voice: ...   │
-│  qwen-nat ││  Amelie    ││  es  ││  warm     ││ Lang:  en    │
-│  voxtream ││           ││  de  ││  cheerful ││              │
-│  qwen     ││           ││  ja  ││          ││ [T]est [S]ave│
-└───────────┘└────────────┘└──────┘└──────────┘└──────────────┘
+┌ Backend ──┐┌ Voice ─────┐┌ Lang ┐┌ Style ────┐┌ Volume ┐┌ Config ──────┐
+│> say      ││> Samantha  ││> en  ││> (default)││  0.5   ││ Backend: say │
+│  piper    ││  Thomas    ││  fr  ││  calm     ││> 1.0   ││ Voice: ...   │
+│  qwen-nat ││  Amelie    ││  es  ││  warm     ││  1.5   ││ Lang:  en    │
+│  voxtream ││           ││  de  ││  cheerful ││  2.0   ││ Volume: 1.0x │
+│  qwen     ││           ││  ja  ││          ││  3.0   ││ [T]est [S]ave│
+└───────────┘└────────────┘└──────┘└──────────┘└────────┘└──────────────┘
 ```
 
 Navigate with arrow keys / hjkl, Tab to switch panel, T to test, S to save, Q to quit.
 
-AI agents use CLI flags instead: `vox -b voxtream -l fr "text"`
+AI agents use CLI flags instead: `vox -b qwen-native -l fr "text"`
 
 ## AI assistant integration
 
