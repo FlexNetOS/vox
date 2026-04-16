@@ -26,9 +26,19 @@ jobs:
             os: ubuntu-latest
             features: ""
             deps: libasound2-dev
+          - name: Linux (CUDA)
+            os: ubuntu-latest
+            features: cuda
+            deps: libasound2-dev
+            cuda: true
           - name: Windows (CPU)
             os: windows-latest
             features: ""
+            deps: ""
+          - name: Windows (CUDA)
+            os: windows-latest
+            features: cuda
+            cuda: true
             deps: ""
 
     steps:
@@ -41,6 +51,14 @@ jobs:
         if: matrix.deps != ''
         run: sudo apt-get update && sudo apt-get install -y ${{ matrix.deps }}
 
+      - name: Install CUDA toolkit
+        if: matrix.cuda == true
+        uses: Jimver/cuda-toolkit@v0.2.22
+        with:
+          cuda: '12.6.3'
+          method: network
+          sub-packages: '["nvcc", "cudart"]'
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -48,7 +66,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.features }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
         run: cargo build ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
@@ -57,6 +75,7 @@ jobs:
         run: cargo test ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
 
       - name: Check formatting
+        if: matrix.cuda != true
         run: cargo fmt -- --check
 
       - name: Clippy
