@@ -33,10 +33,8 @@ jobs:
             os: macos-latest
             features: metal
             archive: tar.gz
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            features: metal
-            archive: tar.gz
+          # x86_64-apple-darwin removed: ort (via piper-rs) has no prebuilt
+          # binaries for Intel Macs. Intel Macs are EOL.
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             features: ""
