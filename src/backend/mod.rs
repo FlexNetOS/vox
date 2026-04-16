@@ -3,6 +3,7 @@
 //! Each backend implements `TtsBackend` and is selected at runtime via `get_backend()`.
 //! Platform-gated: `say` and `qwen` are macOS-only; `kokoro`, `qwen-native`, and `voxtream` are cross-platform.
 
+#[cfg(feature = "kokoro")]
 pub mod kokoro;
 pub mod piper;
 #[cfg(target_os = "macos")]
@@ -35,6 +36,7 @@ pub trait TtsBackend {
 
 pub fn get_backend(name: &str) -> Result<Box<dyn TtsBackend>> {
     match name {
+        #[cfg(feature = "kokoro")]
         "kokoro" => Ok(Box::new(kokoro::KokoroBackend)),
         #[cfg(target_os = "macos")]
         "say" => Ok(Box::new(say::SayBackend)),

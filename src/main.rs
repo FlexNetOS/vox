@@ -959,6 +959,7 @@ fn handle_bench() -> Result<()> {
     {
         candidates.push("voxtream");
     }
+    #[cfg(feature = "kokoro")]
     if backend::get_backend("kokoro")
         .map(|b| b.is_available())
         .unwrap_or(false)

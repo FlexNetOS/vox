@@ -25,6 +25,7 @@ jobs:
           - name: Linux (CPU)
             os: ubuntu-latest
             features: ""
+            no_default_features: true
             deps: libasound2-dev
           - name: Windows (CPU)
             os: windows-latest
@@ -51,13 +52,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: cargo build ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
+        run: cargo build ${{ matrix.no_default_features == true && '--no-default-features' || '' }} ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
 
       - name: Run tests
-        run: cargo test ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
+        run: cargo test ${{ matrix.no_default_features == true && '--no-default-features' || '' }} ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
 
       - name: Check formatting
         run: cargo fmt -- --check
 
       - name: Clippy
-        run: cargo clippy ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }} -- -D warnings
+        run: cargo clippy ${{ matrix.no_default_features == true && '--no-default-features' || '' }} ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }} -- -D warnings
