@@ -29,6 +29,7 @@ hound = "3"
 qwen3-tts = { git = "https://github.com/TrevorS/qwen3-tts-rs", features = ["hub"], default-features = false }
 piper-rs = { git = "https://github.com/thewh1teagle/piper-rs" }
 kokoro-tts = "0.3"
+toml = "0.8"
 ratatui = "0.29"
 crossterm = "0.28"
 

@@ -94,3 +94,38 @@ pub fn clones_dir() -> PathBuf {
 pub fn packs_dir() -> PathBuf {
     config_dir().join("packs")
 }
+
+/// Model configuration loaded from models.toml.
+/// User override: ~/.config/vox/models.toml
+/// Fallback: bundled defaults compiled into the binary.
+static MODELS_TOML: &str = include_str!("../models.toml");
+
+/// Load model config: user override takes precedence, then bundled defaults.
+pub fn load_models_config() -> toml::Table {
+    let user_path = config_dir().join("models.toml");
+    if user_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&user_path) {
+            if let Ok(table) = content.parse::<toml::Table>() {
+                return table;
+            }
+            eprintln!(
+                "Warning: invalid models.toml at {}, using defaults",
+                user_path.display()
+            );
+        }
+    }
+    MODELS_TOML
+        .parse::<toml::Table>()
+        .expect("bundled models.toml is invalid")
+}
+
+/// Get a string value from model config: models_config["section"]["key"].
+pub fn model_config_str(section: &str, key: &str) -> Option<String> {
+    let config = load_models_config();
+    config
+        .get(section)?
+        .as_table()?
+        .get(key)?
+        .as_str()
+        .map(String::from)
+}

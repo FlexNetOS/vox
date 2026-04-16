@@ -13,8 +13,6 @@ use tokio::sync::Mutex;
 use super::{SpeakOptions, TtsBackend};
 use crate::config;
 
-const MODEL_FILE: &str = "kokoro-v1.0.onnx";
-const VOICES_FILE: &str = "voices-v1.0.bin";
 const SAMPLE_RATE: u32 = 24_000;
 
 pub struct KokoroBackend;
@@ -23,15 +21,24 @@ pub struct KokoroBackend;
 static MODEL: OnceLock<Mutex<KokoroTts>> = OnceLock::new();
 
 fn kokoro_dir() -> std::path::PathBuf {
-    config::config_dir().join("kokoro")
+    let subdir = config::model_config_str("kokoro", "subdir").unwrap_or_else(|| "kokoro".into());
+    config::config_dir().join(subdir)
+}
+
+fn model_file() -> String {
+    config::model_config_str("kokoro", "model_file").unwrap_or_else(|| "kokoro-v1.0.onnx".into())
+}
+
+fn voices_file() -> String {
+    config::model_config_str("kokoro", "voices_file").unwrap_or_else(|| "voices.bin".into())
 }
 
 fn model_path() -> std::path::PathBuf {
-    kokoro_dir().join(MODEL_FILE)
+    kokoro_dir().join(model_file())
 }
 
 fn voices_path() -> std::path::PathBuf {
-    kokoro_dir().join(VOICES_FILE)
+    kokoro_dir().join(voices_file())
 }
 
 /// Run an async future on the current tokio runtime, or create one if needed.
@@ -153,15 +160,24 @@ impl TtsBackend for KokoroBackend {
         let mp = model_path();
         let vp = voices_path();
         if !mp.exists() || !vp.exists() {
+            let model_url = config::model_config_str("kokoro", "model_url").unwrap_or_else(|| {
+                "https://github.com/mzdk100/kokoro/releases/download/V1.0/kokoro-v1.0.onnx".into()
+            });
+            let voices_url =
+                config::model_config_str("kokoro", "voices_url").unwrap_or_else(|| {
+                    "https://github.com/mzdk100/kokoro/releases/download/V1.0/voices.bin".into()
+                });
             anyhow::bail!(
                 "Kokoro model not found. Download model files to {}:\n\
                  mkdir -p {}\n\
-                 curl -L -o {} https://github.com/mzdk100/kokoro/releases/download/V1.0/kokoro-v1.0.onnx\n\
-                 curl -L -o {} https://github.com/mzdk100/kokoro/releases/download/V1.0/voices-v1.0.bin",
+                 curl -L -o {} {}\n\
+                 curl -L -o {} {}",
                 kokoro_dir().display(),
                 kokoro_dir().display(),
                 mp.display(),
+                model_url,
                 vp.display(),
+                voices_url,
             );
         }
 

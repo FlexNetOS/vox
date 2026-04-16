@@ -51,7 +51,7 @@ impl App {
             "piper        \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust]",
             "qwen-native  \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 12s  [Rust+Metal]",
             "voxtream     \u{2605}\u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 170ms [CUDA]",
-            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} 10s  [Python]",
+            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust+ONNX] (EN only)",
             "qwen         \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 2s   [Python+MLX]",
         ];
         #[cfg(not(target_os = "macos"))]
@@ -59,7 +59,7 @@ impl App {
             "piper        \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust]",
             "qwen-native  \u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 3s   [Rust+CUDA]",
             "voxtream     \u{2605}\u{2605}\u{2605}\u{2605}\u{2605} quality  \u{26a1} 170ms [CUDA]",
-            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} 10s  [Python]",
+            "kokoro       \u{2605}\u{2605}  quality  \u{26a1} <1s  [Rust+ONNX] (EN only)",
         ];
 
         let current_backend = prefs.backend.as_deref().unwrap_or(config::DEFAULT_BACKEND);
