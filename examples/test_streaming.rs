@@ -1,17 +1,22 @@
 //! Quick test: pipe text through SentenceAccumulator → TTS streaming.
 //! Run with: cargo run --example test_streaming [say|qwen-native]
+//! macOS only (uses vox::chat which requires macOS).
 
-use std::io::{self, Write};
-use std::process::Command;
-use std::sync::mpsc;
-use std::thread;
-use std::time::{Duration, Instant};
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("This example is macOS-only (requires vox::chat).");
+}
 
-use anyhow::Result;
+#[cfg(target_os = "macos")]
+fn main() -> anyhow::Result<()> {
+    use std::io::{self, Write};
+    use std::process::Command;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
 
-use vox::chat::sentence::{STREAMING_MIN_CHUNK_CHARS, SentenceAccumulator};
+    use vox::chat::sentence::{STREAMING_MIN_CHUNK_CHARS, SentenceAccumulator};
 
-fn main() -> Result<()> {
     let backend = std::env::args().nth(1).unwrap_or_else(|| "say".into());
 
     let response = "Bonjour ! Je suis un assistant vocal conçu pour t'aider \
@@ -28,7 +33,7 @@ fn main() -> Result<()> {
     let (tx, rx) = mpsc::channel::<Option<String>>();
 
     let backend_clone = backend.clone();
-    let tts_handle = thread::spawn(move || -> Result<()> {
+    let tts_handle = thread::spawn(move || -> anyhow::Result<()> {
         match backend_clone.as_str() {
             "say" => run_say_loop(rx, start),
             "qwen-native" => run_qwen_native_loop(rx, start),
@@ -63,7 +68,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_say_loop(rx: mpsc::Receiver<Option<String>>, start: Instant) -> Result<()> {
+#[cfg(target_os = "macos")]
+fn run_say_loop(
+    rx: std::sync::mpsc::Receiver<Option<String>>,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
+    use std::process::Command;
+
     let mut first = true;
     loop {
         match rx.recv() {
@@ -84,9 +95,14 @@ fn run_say_loop(rx: mpsc::Receiver<Option<String>>, start: Instant) -> Result<()
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 const CROSSFADE_MS: usize = 20;
 
-fn run_qwen_native_loop(rx: mpsc::Receiver<Option<String>>, start: Instant) -> Result<()> {
+#[cfg(target_os = "macos")]
+fn run_qwen_native_loop(
+    rx: std::sync::mpsc::Receiver<Option<String>>,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
     use rodio::Sink;
     use rodio::buffer::SamplesBuffer;
 

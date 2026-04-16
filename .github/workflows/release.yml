@@ -53,6 +53,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             features: ""
+            no_default_features: true
             archive: zip
 
     steps:
