@@ -17,7 +17,7 @@ pub fn apply_wav_gain(path: &Path, volume: f32) -> Result<()> {
     }
     let mut reader = hound::WavReader::open(path)
         .with_context(|| format!("Failed to open WAV for gain: {}", path.display()))?;
-    let spec = reader.spec().clone();
+    let spec = reader.spec();
 
     let samples: Vec<f32> = match spec.sample_format {
         hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<Vec<_>, _>>()?,

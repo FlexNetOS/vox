@@ -70,9 +70,13 @@ jobs:
 
       - name: Build
         run: cargo build ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
+        env:
+          CUDA_COMPUTE_CAP: ${{ matrix.cuda == true && '89' || '' }}
 
       - name: Run tests
         run: cargo test ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }}
+        env:
+          CUDA_COMPUTE_CAP: ${{ matrix.cuda == true && '89' || '' }}
 
       - name: Check formatting
         if: matrix.cuda != true
@@ -80,3 +84,5 @@ jobs:
 
       - name: Clippy
         run: cargo clippy ${{ matrix.features != '' && format('--features {0}', matrix.features) || '' }} -- -D warnings -A clippy::collapsible_if
+        env:
+          CUDA_COMPUTE_CAP: ${{ matrix.cuda == true && '89' || '' }}
