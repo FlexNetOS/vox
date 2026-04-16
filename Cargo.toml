@@ -9,7 +9,7 @@ keywords = ["tts", "voice", "speech", "cli"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
 [features]
-default = ["kokoro"]
+default = []
 kokoro = ["kokoro-tts"]
 metal = ["qwen3-tts/metal", "qwen3-tts/accelerate"]
 cuda = ["qwen3-tts/cuda"]
