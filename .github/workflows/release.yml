@@ -23,8 +23,11 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.target }}${{ matrix.cuda == true && ' (CUDA)' || '' }}
     runs-on: ${{ matrix.os }}
+    # CUDA matrix entries are best-effort: GH-hosted runners' kernel mismatch
+    # currently breaks nvidia-dkms. Don't block the release on those.
+    continue-on-error: ${{ matrix.cuda == true }}
     strategy:
       fail-fast: false
       matrix:
