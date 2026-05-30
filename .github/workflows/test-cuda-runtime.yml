@@ -1,0 +1,42 @@
+name: Test CUDA runtime fallback
+
+# One-shot validation workflow: build vox with --features cuda on a CUDA-less
+# runner (just nvcc, no driver), upload the binary, so we can download it and
+# verify it runs on machines without an NVIDIA driver (cudarc dynamic loading).
+# Delete this workflow after the experiment.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build linux x86_64 with cuda feature
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Install CUDA toolkit (nvcc only, no driver)
+        uses: Jimver/cuda-toolkit@v0.2.22
+        with:
+          cuda: '12.6.3'
+          method: network
+          sub-packages: '["nvcc", "cudart"]'
+          non-cuda-sub-packages: '[]'
+
+      - name: Build with cuda feature
+        run: cargo build --release --features cuda
+        env:
+          CUDA_COMPUTE_CAP: '89'
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vox-linux-cuda
+          path: target/release/vox
+          retention-days: 7
