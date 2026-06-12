@@ -28,10 +28,10 @@ This project uses [vox](https://github.com/rtk-ai/vox) for spoken feedback.
 After completing a significant task (feature, bug fix, refactor), provide an oral summary:
 
 ```bash
-vox -b say "Short summary of what was done, in French"
+vox "Short summary of what was done, in English"
 ```
 
-Keep summaries under 2 sentences. Use French.
+Keep summaries under 2 sentences. Use English.
 Do not speak for trivial operations (formatting, single-line fixes).
 {VOX_END}"#
     )
@@ -41,7 +41,7 @@ Do not speak for trivial operations (formatting, single-line fixes).
 pub fn claude_md_append_block() -> String {
     format!(
         r#"{VOX_START}
-After completing a significant task, call `vox -b say "résumé en français"` to give a spoken summary.
+After completing a significant task, call `vox "short summary in English"` to give a spoken summary.
 {VOX_END}"#
     )
 }
@@ -85,7 +85,7 @@ pub fn build_settings(existing: Option<&str>) -> Result<String> {
         "hooks": [
           {
             "type": "command",
-            "command": "vox -b say \"Terminé.\""
+            "command": "vox \"Done.\""
           }
         ]
       }
