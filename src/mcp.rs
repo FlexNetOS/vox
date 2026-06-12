@@ -35,7 +35,7 @@ WHEN NOT TO SPEAK:\n\
 \n\
 GUIDELINES:\n\
 - Keep summaries under 2 sentences\n\
-- Use French by default (the user prefers it)\n\
+- Use English by default\n\
 - Use vox_config_show to check the user's preferred voice/backend before first use\n\
 - For longer explanations, use vox_speak with a concise summary, not the full text\n\
 \n\
