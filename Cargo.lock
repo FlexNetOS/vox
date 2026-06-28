@@ -4796,6 +4796,7 @@ dependencies = [
  "clap",
  "crossterm",
  "dirs",
+ "espeak-rs-sys",
  "futures-util",
  "hound",
  "include_dir",

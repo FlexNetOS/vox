@@ -40,6 +40,12 @@ assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
 
+[build-dependencies]
+# build.rs stages espeak-ng-data into OUT_DIR for include_dir!.  Declaring the
+# sys crate as a build-dependency guarantees its build artifact exists before
+# vox's build script searches target/*/build for espeak-ng-data.
+espeak-rs-sys = { git = "https://github.com/thewh1teagle/piper-rs" }
+
 [profile.release]
 opt-level = 3
 lto = true
