@@ -44,14 +44,21 @@ fn find_espeak_data(build_dir: &Path) -> Option<PathBuf> {
         if !name_str.starts_with("espeak-rs-sys-") {
             continue;
         }
-        let candidate = entry
-            .path()
-            .join("out")
-            .join("share")
-            .join("espeak-ng-data");
-        if !candidate.is_dir() {
+        // espeak-rs-sys may leave the data in different locations depending
+        // on whether this is the build-dependency or normal-dependency build
+        // artifact and on platform/install timing.
+        let out = entry.path().join("out");
+        let candidate = [
+            out.join("share").join("espeak-ng-data"),
+            out.join("build").join("espeak-ng-data"),
+            out.join("espeak-ng").join("espeak-ng-data"),
+        ]
+        .into_iter()
+        .find(|candidate| candidate.is_dir());
+
+        let Some(candidate) = candidate else {
             continue;
-        }
+        };
         let mtime = entry
             .metadata()
             .and_then(|m| m.modified())

@@ -51,12 +51,27 @@ jobs:
         if: matrix.deps != ''
         run: sudo apt-get update && sudo apt-get install -y ${{ matrix.deps }}
 
-      - name: Install CUDA toolkit
-        if: matrix.cuda == true
+      - name: Install CUDA toolkit (Linux)
+        if: matrix.cuda == true && runner.os == 'Linux'
+        shell: bash
+        run: |
+          wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends cuda-toolkit-12-6
+          echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
+          echo "CUDA_PATH=/usr/local/cuda" >> "$GITHUB_ENV"
+
+      - name: Install CUDA toolkit (Windows)
+        if: matrix.cuda == true && runner.os == 'Windows'
         uses: Jimver/cuda-toolkit@v0.2.22
         with:
           cuda: '12.6.3'
           method: network
+
+      - name: Set up MSVC environment (Windows CUDA)
+        if: matrix.cuda == true && runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Cache cargo
         uses: actions/cache@v4
