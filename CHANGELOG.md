@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/FlexNetOS/vox/compare/v0.14.0...v0.14.1) (2026-06-28)
+
+
+### Bug Fixes
+
+* English defaults instead of French ([#1](https://github.com/FlexNetOS/vox/issues/1)) ([e0be5c4](https://github.com/FlexNetOS/vox/commit/e0be5c4fe8c6d8d69d71fa7c661cb552153fe70d))
+
 ## [0.14.0](https://github.com/rtk-ai/vox/compare/v0.13.0...v0.14.0) (2026-05-14)
 
 
