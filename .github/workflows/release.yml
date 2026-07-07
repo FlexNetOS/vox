@@ -83,7 +83,11 @@ jobs:
 
       - name: Install system deps (Linux)
         if: matrix.deps != ''
+        # Third-party repos preinstalled on runner images (packages.microsoft.com)
+        # intermittently break apt-get update with signature errors; we don't
+        # need them, so drop them instead of failing the release.
         run: |
+          sudo rm -f /etc/apt/sources.list.d/*microsoft* /etc/apt/sources.list.d/*azure*
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.deps }}
 
