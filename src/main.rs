@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 
 use vox::backend::{self, SpeakOptions};
-use vox::config::DEFAULT_BACKEND;
+use vox::config::{self, DEFAULT_BACKEND};
 use vox::{clone, daemon, db, init, input, mcp, pack, tui};
 
 fn parse_volume(s: &str) -> Result<f32, String> {
@@ -21,7 +21,7 @@ struct Cli {
     /// Text to speak (when no subcommand is used)
     text: Vec<String>,
 
-    /// TTS backend (say, qwen, qwen-native)
+    /// TTS backend (pocket, piper, say, qwen, qwen-native, voxtream)
     #[arg(short = 'b', long, default_value = DEFAULT_BACKEND)]
     backend: String,
 
@@ -273,15 +273,18 @@ fn handle_speak(cli: Cli) -> Result<()> {
     let conn = db::open()?;
     let prefs = db::get_preferences(&conn)?;
 
-    // Merge: CLI flags > DB preferences > defaults
+    let lang = cli.lang.clone().or(prefs.lang);
+
+    // Merge: CLI flags > DB preferences > language-aware defaults
     let backend_name = if cli.backend != DEFAULT_BACKEND {
         cli.backend.clone()
     } else {
-        prefs.backend.unwrap_or_else(|| cli.backend.clone())
+        prefs
+            .backend
+            .unwrap_or_else(|| config::default_backend_for_lang(lang.as_deref()).to_string())
     };
 
     let mut voice = cli.voice.or(prefs.voice);
-    let lang = cli.lang.or(prefs.lang);
     let rate = cli.rate.or(prefs.rate);
     let gender = cli.gender.or(prefs.gender);
     let style = cli.style.or(prefs.style);
@@ -298,7 +301,7 @@ fn handle_speak(cli: Cli) -> Result<()> {
         ref_audio = Some(vc.ref_audio);
         ref_text = vc.ref_text;
         // Auto-switch to a clone-capable backend (unless already on one)
-        if !["qwen", "qwen-native", "voxtream"].contains(&effective_backend.as_str()) {
+        if !["qwen", "qwen-native", "voxtream", "pocket"].contains(&effective_backend.as_str()) {
             effective_backend = voice_clone_backend().to_string();
         }
         voice = None; // don't pass clone name as --voice
@@ -333,7 +336,7 @@ fn handle_speak(cli: Cli) -> Result<()> {
     // Try daemon for heavy backends (warm model = fast inference)
     let is_heavy = matches!(
         effective_backend.as_str(),
-        "voxtream" | "qwen" | "qwen-native" | "kokoro"
+        "voxtream" | "qwen" | "qwen-native" | "kokoro" | "pocket"
     );
     if is_heavy && daemon::is_running() {
         daemon::speak_via_daemon(&text, &effective_backend, &opts)?;
@@ -956,7 +959,7 @@ fn handle_bench() -> Result<()> {
     println!();
 
     // List backends to test
-    let mut candidates: Vec<&str> = vec!["piper"];
+    let mut candidates: Vec<&str> = vec!["piper", "pocket"];
     #[cfg(target_os = "macos")]
     candidates.push("say");
     // Only test backends that are available
