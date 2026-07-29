@@ -1,11 +1,25 @@
 # Changelog
 
 ## [0.14.1](https://github.com/FlexNetOS/vox/compare/v0.14.0...v0.14.1) (2026-06-28)
+## [0.15.1](https://github.com/rtk-ai/vox/compare/v0.15.0...v0.15.1) (2026-07-09)
 
 
 ### Bug Fixes
 
 * English defaults instead of French ([#1](https://github.com/FlexNetOS/vox/issues/1)) ([e0be5c4](https://github.com/FlexNetOS/vox/commit/e0be5c4fe8c6d8d69d71fa7c661cb552153fe70d))
+* **install:** support VOX_INSTALL_DIR and fall back to ~/.local/bin without sudo ([#71](https://github.com/rtk-ai/vox/issues/71)) ([c92366a](https://github.com/rtk-ai/vox/commit/c92366aea6b88d9ebadc2c5ceba37f6fd7662177)), closes [#70](https://github.com/rtk-ai/vox/issues/70)
+
+## [0.15.0](https://github.com/rtk-ai/vox/compare/v0.14.0...v0.15.0) (2026-07-07)
+
+
+### Features
+
+* add pocket backend (Kyutai pocket-tts, pure Rust CPU) and make it the default ([#68](https://github.com/rtk-ai/vox/issues/68)) ([61acdd6](https://github.com/rtk-ai/vox/commit/61acdd68fa7a98f6fcf4c54c1ac8ce0c0ca151eb))
+
+
+### Bug Fixes
+
+* respect configured/system lang in MCP instructions instead of hardcoding French ([#67](https://github.com/rtk-ai/vox/issues/67)) ([ac63bf1](https://github.com/rtk-ai/vox/commit/ac63bf1509f8161510fd1a0906f97b9b43f10704))
 
 ## [0.14.0](https://github.com/rtk-ai/vox/compare/v0.13.0...v0.14.0) (2026-05-14)
 
