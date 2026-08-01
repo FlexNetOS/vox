@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.16.0](https://github.com/FlexNetOS/vox/compare/v0.15.1...v0.16.0) (2026-08-01)
+
+
+### Features
+
+* add --volume flag for audio gain control ([6831a0a](https://github.com/FlexNetOS/vox/commit/6831a0a5768111717bde070ef31d1bf96b5a1676))
+* add `vox bench` auto-detection of best backend ([#53](https://github.com/FlexNetOS/vox/issues/53)) ([0a7f073](https://github.com/FlexNetOS/vox/commit/0a7f073c67f1444dd6a8082efb9beba5ed797ad0))
+* add 6 AI tools to vox init (Gemini, Amazon Q, Cline, Roo Code, Kilo Code, Amp) ([65c73a2](https://github.com/FlexNetOS/vox/commit/65c73a23a6f1bc3795cc04f5a7d0badff99d6d87))
+* add CUDA builds for Linux and Windows ([dc7f6c6](https://github.com/FlexNetOS/vox/commit/dc7f6c64a7e7028bdf6378e200d500604ae110b8))
+* add Kokoro TTS backend, universal MCP init, source-available license ([413ff83](https://github.com/FlexNetOS/vox/commit/413ff83e2136f28c9b172f2239b0abc9d69a913b))
+* add lazy daemon mode and streaming voxtream-server integration ([#36](https://github.com/FlexNetOS/vox/issues/36)) ([47a7609](https://github.com/FlexNetOS/vox/commit/47a7609ab22e9f6c716de312e0f27181920dc3e8)), closes [#30](https://github.com/FlexNetOS/vox/issues/30)
+* add MCP server and cross-platform improvements ([995f3d4](https://github.com/FlexNetOS/vox/commit/995f3d45e7f3b30441522a530f0a0c5421b07c07))
+* add piper TTS backend and set as default for all platforms ([#49](https://github.com/FlexNetOS/vox/issues/49)) ([48d2193](https://github.com/FlexNetOS/vox/commit/48d2193ff68836632f57bfae0482983a97bfae46))
+* add pocket backend (Kyutai pocket-tts, pure Rust CPU) and make it the default ([#68](https://github.com/FlexNetOS/vox/issues/68)) ([61acdd6](https://github.com/FlexNetOS/vox/commit/61acdd68fa7a98f6fcf4c54c1ac8ce0c0ca151eb))
+* add qwen-native backend using qwen3-tts-rs for pure Rust TTS inference ([db2296c](https://github.com/FlexNetOS/vox/commit/db2296c4f8e581edecd677caee5385a20fcbf7eb))
+* add sound pack system (peon-ping compatible) ([#18](https://github.com/FlexNetOS/vox/issues/18)) ([b048487](https://github.com/FlexNetOS/vox/commit/b048487a7f897b4bee0b5f4fb1ffc484d36873d1))
+* add UX, performance, and security test suites ([#24](https://github.com/FlexNetOS/vox/issues/24)) ([c421483](https://github.com/FlexNetOS/vox/commit/c421483db9382a0590fd8d63471661c51bb34772))
+* add VoXtream2 backend and interactive TUI setup ([#31](https://github.com/FlexNetOS/vox/issues/31)) ([5c7799c](https://github.com/FlexNetOS/vox/commit/5c7799cd3cc5673b467e1caf5c09684ce3287c97))
+* cross-platform support for Linux CUDA and Windows ([#8](https://github.com/FlexNetOS/vox/issues/8)) ([1ec501f](https://github.com/FlexNetOS/vox/commit/1ec501f55a3722416d7cf21899da536bd52010d2))
+* enrich vox stats + fix broken STT tests ([22923ca](https://github.com/FlexNetOS/vox/commit/22923ca7144b9a08dabec223c010dcdad34297a0))
+* enrich vox stats with speech time, per-backend/language breakdown ([fd533bc](https://github.com/FlexNetOS/vox/commit/fd533bcca15e77541f7b86efb520df399c65b4a0))
+* externalize model config to models.toml, mark kokoro as EN-only ([de5b587](https://github.com/FlexNetOS/vox/commit/de5b5872672dece5dd5a3a8b8d7dc9f1401256a9))
+* full Rust piper backend (piper-rs) + TUI quality ratings ([#52](https://github.com/FlexNetOS/vox/issues/52)) ([7f0292f](https://github.com/FlexNetOS/vox/commit/7f0292f0c716a5fb195a5f035d3933a437755400))
+* parallelize CI and fix release workflow for macOS ([170a75f](https://github.com/FlexNetOS/vox/commit/170a75fe1037f601df0a3c2633b9137494813ce2))
+* replace Kokoro Python subprocess with pure Rust (kokoro-tts crate) ([a522b56](https://github.com/FlexNetOS/vox/commit/a522b568c6bce14d1acb0a9149404ee1ca2c0e4e))
+* smart sentence merging and configurable model for faster TTS ([f73501c](https://github.com/FlexNetOS/vox/commit/f73501c52532ca27a49825a4a86c6103dacb72f6))
+* vox 0.0.1 — TTS CLI for macOS with release pipeline ([7f41cd5](https://github.com/FlexNetOS/vox/commit/7f41cd5398bbbeae9ee2559aea33acac501f89e4))
+
+
+### Bug Fixes
+
+* add brew install python3 for Qwen requirements ([de7c23d](https://github.com/FlexNetOS/vox/commit/de7c23decd69b4adff605be7f53f476183380e44))
+* add missing CUDA libs to CI toolkit (nvrtc, cublas, curand) ([230fe07](https://github.com/FlexNetOS/vox/commit/230fe079462ba9c7eb22be65ed5cac7c2b68879e))
+* align backend preference validation with runtime registry ([#61](https://github.com/FlexNetOS/vox/issues/61)) ([02501d0](https://github.com/FlexNetOS/vox/commit/02501d04aa30aff914d39c76270046a89dd52af1))
+* apply cargo fmt formatting ([622ae84](https://github.com/FlexNetOS/vox/commit/622ae844f6a969a3ebf04cfe8d774c26c64dd03a))
+* auto-enable CUDA for piper backend when NVIDIA GPU detected ([#50](https://github.com/FlexNetOS/vox/issues/50)) ([4288eff](https://github.com/FlexNetOS/vox/commit/4288efff19302f5de0df21b75e1cabbc5d384deb))
+* auto-fix for issue [#33](https://github.com/FlexNetOS/vox/issues/33) [wshm] ([#34](https://github.com/FlexNetOS/vox/issues/34)) ([bcf0e25](https://github.com/FlexNetOS/vox/commit/bcf0e25425dc9f7c58200f300501aad914adbf79))
+* bundle espeak-ng-data inside binary (fixes [#59](https://github.com/FlexNetOS/vox/issues/59)) ([#60](https://github.com/FlexNetOS/vox/issues/60)) ([b251c3c](https://github.com/FlexNetOS/vox/commit/b251c3c4e6cf061b7852c64be1bd3a0e296ab6ef))
+* CI failures — disable kokoro on Windows, fix clippy and example ([c24bd7a](https://github.com/FlexNetOS/vox/commit/c24bd7a6b65889c9454da28f0c464bd139d67284))
+* clippy clone-on-copy, set CUDA_COMPUTE_CAP for CI builds ([554219d](https://github.com/FlexNetOS/vox/commit/554219d30c85043701fd82540ceb78e1266e364d))
+* cross-platform home detection and CI workflow_dispatch ([7db9d03](https://github.com/FlexNetOS/vox/commit/7db9d03cb00992a3ac21a159d4c1a4f0a4f5b748))
+* default init mode to mcp instead of all ([0b414f5](https://github.com/FlexNetOS/vox/commit/0b414f580a2e35db7541ed2e678363b1745d95ec))
+* default init mode to mcp instead of all ([7835952](https://github.com/FlexNetOS/vox/commit/78359528923173e5b99833f3b2986005c2f43632))
+* default to say backend on macOS, kokoro on other platforms ([#23](https://github.com/FlexNetOS/vox/issues/23)) ([c624028](https://github.com/FlexNetOS/vox/commit/c624028eabc64030710477be04dd95c15678bbba))
+* disable kokoro from default features, fix Linux cross-compile ([d0cdfa9](https://github.com/FlexNetOS/vox/commit/d0cdfa9c45690f4822c3a0a9ec868efa9b541c47))
+* document Qwen backend requirements in README ([055450a](https://github.com/FlexNetOS/vox/commit/055450a7e41c21d9052f5758651279c7ae04ddef))
+* format with rustfmt 1.93 to match CI ([b7c0459](https://github.com/FlexNetOS/vox/commit/b7c045928e792828f254977f5dedba1fff15744d))
+* gate kokoro behind feature flag to fix Linux link error ([ae22cd2](https://github.com/FlexNetOS/vox/commit/ae22cd2eea75ba8ea6d85b77ce84a1f081cca1fc))
+* initial release setup ([cee2a35](https://github.com/FlexNetOS/vox/commit/cee2a35a4960590b9d4b894323977616ef0f853f))
+* install full CUDA toolkit in CI (cudarc needs many libs) ([28b040d](https://github.com/FlexNetOS/vox/commit/28b040da3a99770c671fa856a4681a21d6c6bdde))
+* **install:** support VOX_INSTALL_DIR and fall back to ~/.local/bin without sudo ([#71](https://github.com/FlexNetOS/vox/issues/71)) ([c92366a](https://github.com/FlexNetOS/vox/commit/c92366aea6b88d9ebadc2c5ceba37f6fd7662177)), closes [#70](https://github.com/FlexNetOS/vox/issues/70)
+* pass secrets to release workflow for Homebrew update ([c025d9d](https://github.com/FlexNetOS/vox/commit/c025d9d7c5bcb4f53f716f5f212326dc6078ee55))
+* release workflow binary upload when called via workflow_call ([#10](https://github.com/FlexNetOS/vox/issues/10)) ([a215c52](https://github.com/FlexNetOS/vox/commit/a215c52fc8062b804a3682fdda53a1599573ff07))
+* release workflow not uploading binary assets (fixes [#56](https://github.com/FlexNetOS/vox/issues/56)) ([1cd8c02](https://github.com/FlexNetOS/vox/commit/1cd8c02837793ded55993f4c118d7832ceb82fc0))
+* remove aarch64-linux cross-compile from release (not working in CI) ([8db035c](https://github.com/FlexNetOS/vox/commit/8db035c9d7744d0d837fe61b63686ee54248da46))
+* remove kokoro from TUI backend list (poor quality) ([c89c7bc](https://github.com/FlexNetOS/vox/commit/c89c7bc7558c187412eeb3bcaad67267d269f54d))
+* remove Stop hook (terminé) from project settings ([085725a](https://github.com/FlexNetOS/vox/commit/085725a77c40cfbfdcf98f3fc203283ce1220464))
+* remove x86_64-apple-darwin from release (ort has no prebuilt binaries) ([b565b9b](https://github.com/FlexNetOS/vox/commit/b565b9b65e1a982ff6b1f3de26a21ae81458e1c2))
+* resolve all clippy warnings (collapsible_if, from_str rename) ([b1648ed](https://github.com/FlexNetOS/vox/commit/b1648edbf63a45fb8397f03c4adfe57861c77e77))
+* resolve clippy warnings breaking CI (manual_find, trim_split_whitespace, iter_cloned_collect) ([#47](https://github.com/FlexNetOS/vox/issues/47)) ([8dfd6ce](https://github.com/FlexNetOS/vox/commit/8dfd6ce19691b808b92e1eac5c7d38178ce1e861))
+* respect configured/system lang in MCP instructions instead of hardcoding French ([#67](https://github.com/FlexNetOS/vox/issues/67)) ([ac63bf1](https://github.com/FlexNetOS/vox/commit/ac63bf1509f8161510fd1a0906f97b9b43f10704))
+* revert kokoro to Python backend, restore say default on macOS ([#37](https://github.com/FlexNetOS/vox/issues/37)) ([0c2f7a1](https://github.com/FlexNetOS/vox/commit/0c2f7a1a4233f9cefedc8e51805c832426fca0fc))
+* update README license from MIT to source-available ([#22](https://github.com/FlexNetOS/vox/issues/22)) ([080de05](https://github.com/FlexNetOS/vox/commit/080de055b525bf50942665fb99be779d13ae7609))
+
 ## [0.15.1](https://github.com/rtk-ai/vox/compare/v0.15.0...v0.15.1) (2026-07-09)
 
 
